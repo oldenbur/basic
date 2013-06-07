@@ -1,0 +1,123 @@
+ROOT LOGIN | user: root  password: st1rl1ng
+WIRELESS LOGIN | network: termapublic  password: Bowld3r1
+WIRELESS LOGIN | network: terma        password: 9dfY8ycgAZfPy51wXTpSnChAOwAs9MAz3VyrPW9wsRrChk47A4pZLhTb5ptC4nQ
+SARATOGA LOGIN | username: software  password: s0ftwar3
+SARATOGA LOGIN | username: svnadmin  password: svnadm1n
+WARP RDP LOGIN | use krdc tool - hostname: warp  username: jawsdemo  password: 6RTyd3V8
+TEST01 RDP LOGIN | use krdc tool - hostname: test01 username: Administrator  password: st1rl1ng
+WARP FOLDER LOGIN | use dolphin tool: Network -> Samba Shares -> Stirlingsystems -> warp -> C$
+WARP FOLDER LOGIN |   username: stirlingsystems\jawsdemo  password: 6RTyd3V8
+WINDOWS LOGIN | krdc to mhirsch-01w
+WINDOWS LOGIN |   user: STIRLINGSYSTEMS\poldenburg
+WINDOWS LOGIN |   password: 0ldenburg!
+
+SVN RALLY | to create the SVN hook in Rally: login to saratoga as software: ssh software@saratoga
+SVN RALLY |   1. login to saratoga as software: ssh software@saratoga  (password s0ftwar3)
+SVN RALLY |   2. run the /home/software/encrypt.rb script: ./encrypt.rb {email} {password}
+SVN RALLY |   3. get the encrypted password string from the file /home/software/enc_passwds 
+SVN RALLY |   4. switch user to svnadmin: su svnadmin  (password svnadm1n) 
+SVN RALLY |   5. edit /home/svnadmin/svn2rally/svn2rally.rb and add the username and encrypted password
+
+JAWS CONFIG | run [jaws-src-base]/src/ConfigTool/run.sh and use default JAWS location of /opt/JBoss
+JAWS JBOSS | To create a new instance of JAWS:
+JAWS JBOSS |   1. check out a new SVN project
+JAWS JBOSS |   2. deploy a new instance of jboss-4.0.1sp1 in /opt/JBoss-[name]
+JAWS JBOSS |   3. edit [jaws-proj]/jboss.ant.properties with the jboss location
+JAWS JBOSS |   4. edit [jaws-proj]/src/server-new/deploy/conf/jaws-database.xml with the correct database information 
+JAWS JBOSS |   5. run the ant targets build, create-dev-scripts (src/sql/build.xml), configure-jboss and deploy-ear
+JAWS JBOSS |   6. set up a separate mysql database for the new instance by modifying rebuildJaws
+JAWS JBOSS |   7. run the config tool (src/ConfigTool/run.sh) and set up the database and port information
+JAWS JBOSS |   8. create a new eclipse server profile, copying an existing one and modifying it with the new port information
+JAWS JBOSS |   9. start the server and make sure it starts
+JAWS JBOSS |  10. modify MiniWebStart with the new port number for the client
+JAWS JBOSS |  11. to run multiple clients, try one of three things:
+JAWS JBOSS |      a. change the client.jawsServerId to some other 8 character id 
+JAWS JBOSS |      b. try to use the jaws/jaws.jnlp?crosstalk-port=none suffix
+JAWS JBOSS |      c. use the [jaws-proj]/tools/launch-client.html utility
+JAWS CLI UTIL | run jaws-trunk/src/commandline/runlocal.pl and use help([func_name]) to directly interact with JAWS EJB layer
+JAWS TAHINI | edit dialog .xml, then run TahiniPreview to view changes
+DEBUG CONFIGTOOL | debug main class: com.termalabs.configui.Main
+DEBUG CONFIGTOOL |   1.  add program argument: /opt/JBoss
+DEBUG CONFIGTOOL |   2.  change working directory: ${workspace_loc:jaws-4.2}/src/ConfigTool
+DEBUG CONFIGTOOL |   3.  copy [jaws-base]/src/ConfigTool/log4j.properties to [jaws-base]/src/ConfigTool/log/
+DEBUG CONFIGTOOL |   4.  copy [jaws-base]/build/ConfigTool/classes/com/termalabs/configui/settings/loggers.txt to
+DEBUG CONFIGTOOL |         [jaws-base]/eclipse/com/termalabs/configui/settings/
+
+JBOSS KILL UTIL | command jbosskill
+JAVA UTIL | use tool jar_class
+JAVA UTIL | jstack [pid]
+UTIL EPOCH | epoch conversion tool: ep
+UTIL DATABASE | JAWS database version: db_ver [database (jaws)]
+
+MYSQL DATABASE | save a snapshot of a current jaws database (as root): 
+MYSQL DATABASE |   $ mysqldump -uroot -pst1rl1ng jaws > /home/paul/mysqldump/[image_name].sql
+MYSQL DATABASE | restore a snapshot of a saved jaws database (as root):
+MYSQL DATABASE |   $ mysql -uroot -pst1rl1ng -e'drop database jaws;'
+MYSQL DATABASE |   $ mysql -uroot -pst1rl1ng -e'create database jaws;'
+MYSQL DATABASE |   $ time mysql -uroot -pst1rl1ng jaws < /home/paul/mysqldump/[image_name].sql
+
+SMOKE HUDSON | login to manzanita as root
+SMOKE HUDSON | tests in /root/slave/workspace
+
+AUTOSYS SCHEDULER | Development Autosys Scheduler:
+AUTOSYS SCHEDULER |   DBMS: SQL Server
+AUTOSYS SCHEDULER |   host: warp
+AUTOSYS SCHEDULER |   port: 1433
+AUTOSYS SCHEDULER |   dbname: autosys
+AUTOSYS SCHEDULER |   user: autosys
+AUTOSYS SCHEDULER |   password: autosys
+AUTOSYS SCHEDULER | Test Autosys Scheduler:
+AUTOSYS SCHEDULER |   DBMS: SQL Server
+AUTOSYS SCHEDULER |   host: test01 
+AUTOSYS SCHEDULER |   port: 1433
+AUTOSYS SCHEDULER |   dbname: AEDB 
+AUTOSYS SCHEDULER |   user: autosys
+AUTOSYS SCHEDULER |   password: autosys
+TIDAL SCHEDULER | Development Tidal Scheduler:
+TIDAL SCHEDULER |   client: http://tidal01:8080/client
+TIDAL SCHEDULER |   API host: http://tidal01:8080/api/tes-6.0
+TIDAL SCHEDULER |   user: termalabs\jawsdemo
+TIDAL SCHEDULER |   password: a3JsBkmY
+TIDAL SCHEDULER | Test Tidal Scheduler Rome:
+TIDAL SCHEDULER |   client: http://qa004:8080/client
+TIDAL SCHEDULER |   API host: http://qa004:8080/api/tes-6.0
+TIDAL SCHEDULER |   user: stirlingsystems\jawsdemo
+TIDAL SCHEDULER |   password: 6RTyd3V8
+CA7 SCHEDULER | Development CA7 Scheduler (email from Steve on 12/05/2012):
+CA7 SCHEDULER |   web client: http://ca7guibeta:8080/ca7wai_appl/ca7wai
+CA7 SCHEDULER |   host: 192.168.1.242
+CA7 SCHEDULER |   port: 21 (default)
+CA7 SCHEDULER |   FTP User: ADCDMST
+CA7 SCHEDULER |   FTP Password: ABCDEF3
+CA7 SCHEDULER |   Trigger DSN: ADCDMST.TRIGGERS.PAUL
+CA7 SCHEDULER |   Report Base DSN: ADCDMST.PAUL
+
+AUTOSYS | In ACE command window autorep command:
+AUTOSYS |   > autorep -J {job_name} -d -r -{run_num}
+AUTOSYS |   > autorep -M {machine_name} -d -q
+AUTOSYS |   > sendevent -J {job_name} -E EVENT
+AUTOSYS |   > chk_auto_up
+
+ORACLE | SQL Dev IDE: sqldeveloper
+ORACLE | Oracle Express Database  http://docs.oracle.com/cd/E17781_01/index.htm
+ORACLE |   location: /u01/app/oracle
+ORACLE |    process: $ chkconfig --list oracle-xe
+
+JSFIDDLE | jquery attribute selectors: http://jsfiddle.net/DPu9S/
+
+EEM | web app: https://devlora02:5250/spin/eiam/eiam.csp
+EEM |   user: EiamAdmin
+EEM |   password: eiamadmin
+EEM | testing in JAWS: in Admin Tab -> User Management -> New Domain (eem)
+EEM |   host: devlora02
+EEM |   user: EiamAdmin
+EEM |   password: eiamadmin
+EEM | log into JAWS as:
+EEM |   user: paul
+EEM |   password: Terma2013
+
+LINUX | $ netstat -tulpn  # list who is listening on what ports
+LINUX FIREWALL | (as root): $ system-config-firewall
+
+VIM PYTHON | To set tabs to two spaces and not using tabs:
+VIM PYTHON |   :set softtabstop=2 shiftwidth=2 expandtab
