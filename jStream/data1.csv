@@ -1,0 +1,6 @@
+Id,Type,Name,Parent,Predecessors
+1,group,group1,
+2,job,job2,1
+3,job,job3,1,2
+4,job,job4,,3
+5,job,job5,,2
