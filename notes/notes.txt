@@ -1,0 +1,56 @@
+
+JAWS CONFIG | run [jaws-src-base]/src/ConfigTool/run.sh and use default JAWS location of /opt/JBoss
+JAWS JBOSS | To create a new instance of JAWS:
+JAWS JBOSS |   1. check out a new SVN project
+JAWS JBOSS |   2. deploy a new instance of jboss-4.0.1sp1 in /opt/JBoss-[name]
+JAWS JBOSS |   3. edit [jaws-proj]/jboss.ant.properties with the jboss location
+JAWS JBOSS |   4. edit [jaws-proj]/src/server-new/deploy/conf/jaws-database.xml with the correct database information 
+JAWS JBOSS |   5. run the ant targets build, create-dev-scripts (src/sql/build.xml), configure-jboss and deploy-ear
+JAWS JBOSS |   6. set up a separate mysql database for the new instance by modifying rebuildJaws
+JAWS JBOSS |   7. run the config tool (src/ConfigTool/run.sh) and set up the database and port information
+JAWS JBOSS |   8. create a new eclipse server profile, copying an existing one and modifying it with the new port information
+JAWS JBOSS |   9. start the server and make sure it starts
+JAWS JBOSS |  10. modify MiniWebStart with the new port number for the client
+JAWS JBOSS |  11. to run multiple clients, try one of three things:
+JAWS JBOSS |      a. change the client.jawsServerId to some other 8 character id 
+JAWS JBOSS |      b. try to use the jaws/jaws.jnlp?crosstalk-port=none suffix
+JAWS JBOSS |      c. use the [jaws-proj]/tools/launch-client.html utility
+JAWS CLI UTIL | run jaws-trunk/src/commandline/runlocal.pl and use help([func_name]) to directly interact with JAWS EJB layer
+JAWS TAHINI | edit dialog .xml, then run TahiniPreview to view changes
+DEBUG CONFIGTOOL | debug main class: com.termalabs.configui.Main
+DEBUG CONFIGTOOL |   1.  add program argument: /opt/JBoss
+DEBUG CONFIGTOOL |   2.  change working directory: ${workspace_loc:jaws-4.2}/src/ConfigTool
+DEBUG CONFIGTOOL |   3.  copy [jaws-base]/src/ConfigTool/log4j.properties to [jaws-base]/src/ConfigTool/log/
+DEBUG CONFIGTOOL |   4.  copy [jaws-base]/build/ConfigTool/classes/com/termalabs/configui/settings/loggers.txt to
+DEBUG CONFIGTOOL |         [jaws-base]/eclipse/com/termalabs/configui/settings/
+DEBUG JAWS CLIENT | to avoid the mouse becoming useless at a breakpoint, debug swing apps with VM Argument: -Dsun.awt.disablegrab=true
+
+JBOSS KILL UTIL | command jbosskill
+JAVA UTIL | use tool jar_class
+JAVA UTIL | jstack [pid]
+UTIL EPOCH | epoch conversion tool: ep
+UTIL DATABASE | JAWS database version: db_ver [database (jaws)]
+
+AUTOSYS | In ACE command window autorep command:
+AUTOSYS |   > autorep -J {job_name} -d -r -{run_num}
+AUTOSYS |   > autorep -M {machine_name} -d -q
+AUTOSYS |   > sendevent -J {job_name} -E EVENT
+AUTOSYS |   > chk_auto_up
+
+ORACLE PERL | Installing DBD::Oracle:
+ORACLE PERL |   $ echo $ORACLE_HOME
+ORACLE PERL |   $ export ORACLE_USERID=jaws/jaws
+ORACLE PERL |   $ export ORACLE_DSN="dbi:Oracle:host=localhost;port=1521;sid=XE"
+ORACLE PERL |   $ perl -MCPAN -e shell
+ORACLE PERL |   cpan> install DBD::Oracle 
+ORACLE PERL |   $ perl -e 'use DBD::Oracle; print $DBD::Oracle::VERSION,"\n";'
+ORACLE PERL |   $ ldconfig -vn $ORACLE_HOME/lib
+
+JSFIDDLE | jquery attribute selectors: http://jsfiddle.net/DPu9S/
+
+LINUX | $ netstat -tulpn  # list who is listening on what ports
+LINUX FIREWALL | (as root): $ system-config-firewall
+
+VIM PYTHON | To set tabs to two spaces and not using tabs:
+VIM PYTHON |   :set softtabstop=2 shiftwidth=2 expandtab
+
