@@ -14,6 +14,18 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/headzoo/surf"
+  packages = [
+    "agent",
+    "browser",
+    "errors",
+    "jar",
+    "util"
+  ]
+  revision = "60198774ccce43e1d26c80e961497b7d262460b3"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/urfave/cli"
   packages = ["."]
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
@@ -28,9 +40,15 @@
   ]
   revision = "d0aafc73d5cdc42264b0af071c261abac580695e"
 
+[[projects]]
+  name = "gopkg.in/headzoo/surf.v1"
+  packages = ["."]
+  revision = "60198774ccce43e1d26c80e961497b7d262460b3"
+  version = "v1.0.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "3942721e2280ec1c3b1fff4391d360bb905da093f3712ee57d22c39d6c8e3119"
+  inputs-digest = "45e76ec4851dde6a6d738357c26294806a48fc3a5e00dc47f685c18fce0733d0"
   solver-name = "gps-cdcl"
   solver-version = 1

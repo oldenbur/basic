@@ -2,10 +2,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 
 	"time"
@@ -16,10 +13,15 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/urfave/cli"
+	"gopkg.in/headzoo/surf.v1"
 )
 
 const (
-	regtimesFlag = "regtimes"
+	ymcaSchedulesUrl = "https://bouldervalley.consoria.com/%s"
+	urlDateFormat = "2006-01-02"
+scheduleTimeFormat = "3:04 PM"
+
+regtimesFlag = "regtimes"
 	//eventTitle        = "Adult Pick-Up"
 	eventTitle        = "Adult Pick-Up Hockey (Advanced)"
 	argDateFormat     = "2006-01-02T15:04:05"
@@ -59,17 +61,12 @@ func yregister(c *cli.Context) error {
 
 func registerDate(eventTime time.Time) error {
 
-	registerUrl, err := findReserveUrl(eventTime)
+	reserveUrl, err := findReserveUrl(eventTime)
 	if err != nil {
 		return err
 	}
 
-	registrationInfo, err := findRegistrationInfo(registerUrl)
-	if err != nil {
-		return err
-	}
-
-	return postRegistration(registrationInfo)
+	return postRegistration(reserveUrl)
 }
 
 func findReserveUrl(eventTime time.Time) (string, error) {
@@ -77,13 +74,13 @@ func findReserveUrl(eventTime time.Time) (string, error) {
 	var reserveUrl string
 	var err error
 
-	schedUrl := fmt.Sprintf("https://bouldervalley.consoria.com/%s", eventTime.Format("2006-01-02"))
+	schedUrl := fmt.Sprintf(ymcaSchedulesUrl, eventTime.Format(urlDateFormat))
 	doc, err := goquery.NewDocument(schedUrl)
 	if err != nil {
 		return reserveUrl, err
 	}
 
-	startTime := eventTime.Format("3:04 PM")
+	startTime := eventTime.Format(scheduleTimeFormat)
 	log.Printf("looking for startTime %s", startTime)
 	doc.Find("tr.session-list").Each(
 		func(i int, s *goquery.Selection) {
@@ -116,64 +113,21 @@ func findReserveUrl(eventTime time.Time) (string, error) {
 	return reserveUrl, err
 }
 
-type registrationInfo struct {
-	Action string
-	Token  string
-}
+func postRegistration(registerUrl string) error {
 
-func findRegistrationInfo(registerUrl string) (*registrationInfo, error) {
-
-	var err error
-	var action, token string
-
-	doc, err := goquery.NewDocument(registerUrl)
+	browser := surf.NewBrowser()
+	err := browser.Open(registerUrl)
 	if err != nil {
-		return nil, fmt.Errorf("NewDocument(registerUrl) error: %v", err)
+		return fmt.Errorf("browser.Open(registerUrl) error: %v", err)
 	}
 
-	doc.Find("form.form").Each(
-		func(i int, s *goquery.Selection) {
-
-			var exists bool
-			action, exists = s.Attr("action")
-			if !exists {
-				err = errors.New("form action not found")
-				log.Print(err.Error())
-				return
-			}
-
-			token, exists = s.Find("input[name=_token]").Attr("value")
-			if !exists {
-				err = errors.New("form token not found")
-				log.Print(err.Error())
-				return
-			}
-
-			log.Printf("action: %s  token: %s", action, token)
-		})
-
-	return &registrationInfo{action, token}, err
-}
-
-func postRegistration(info *registrationInfo) error {
-
-	resp, err := http.PostForm(info.Action,
-		url.Values{
-			"_token": {info.Token},
-			"name":   {registrationName},
-			"email":  {registrationEmail},
-		})
-	if err != nil {
-		return fmt.Errorf("PostForm error: %v", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("PostForm resp.Body ReadAll error: %v", err)
+	form, _ := browser.Form("form.form")
+	form.Input("name", registrationName)
+	form.Input("email", registrationEmail)
+	if form.Submit() != nil {
+		return fmt.Errorf("form.Submit error: %v", err)
 	}
 
-	log.Printf("registration post response: %v", string(body))
 
 	return nil
 }
