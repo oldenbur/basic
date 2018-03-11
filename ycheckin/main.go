@@ -1,36 +1,34 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"os"
-
+	"strings"
 	"time"
 
-	"strings"
-
-	"errors"
-
 	"github.com/PuerkitoBio/goquery"
+	"github.com/cihub/seelog"
 	"github.com/urfave/cli"
 	"gopkg.in/headzoo/surf.v1"
 )
 
 const (
-	ymcaSchedulesUrl = "https://bouldervalley.consoria.com/%s"
-	urlDateFormat = "2006-01-02"
-scheduleTimeFormat = "3:04 PM"
-
-regtimesFlag = "regtimes"
-	//eventTitle        = "Adult Pick-Up"
-	eventTitle        = "Adult Pick-Up Hockey (Advanced)"
-	argDateFormat     = "2006-01-02T15:04:05"
-	registrationName  = "Paul Oldenburg"
-	registrationEmail = "oldenbur@gmail.com"
+	ymcaSchedulesUrl   = "https://bouldervalley.consoria.com/%s"
+	urlDateFormat      = "2006-01-02"
+	scheduleTimeFormat = "3:04 PM"
+	regtimesFlag       = "regtimes"
+	eventTitle         = "Adult Pick-Up"
+	argDateFormat      = "2006-01-02T15:04:05"
+	registrationName   = "Paul Oldenburg"
+	registrationEmail  = "oldenbur@gmail.com"
 )
 
 func main() {
-	log.Printf("ychecking started")
+	setupLogging()
+	defer seelog.Flush()
+
+	seelog.Infof("ycheckin started")
 	app := cli.NewApp()
 
 	app.Flags = []cli.Flag{
@@ -44,9 +42,9 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		seelog.Errorf("cli.Run error: %v", err)
 	}
-	log.Printf("ychecking complete")
+	seelog.Infof("ycheckin complete")
 }
 
 func yregister(c *cli.Context) error {
@@ -81,7 +79,7 @@ func findReserveUrl(eventTime time.Time) (string, error) {
 	}
 
 	startTime := eventTime.Format(scheduleTimeFormat)
-	log.Printf("looking for startTime %s", startTime)
+	seelog.Infof("looking for startTime %s", startTime)
 	doc.Find("tr.session-list").Each(
 		func(i int, s *goquery.Selection) {
 
@@ -99,11 +97,11 @@ func findReserveUrl(eventTime time.Time) (string, error) {
 			reserveUrl, exists = s.Find("td > a").Attr("href")
 			if !exists {
 				err = fmt.Errorf("reserveUrl does not exist for %s %s", eventTime, title)
-				log.Print(err.Error())
+				seelog.Error(err.Error())
 				return
 			}
 
-			log.Printf("found %s %s %s", eventTime, title, reserveUrl)
+			seelog.Infof("found %s %s %s", eventTime, title, reserveUrl)
 		})
 
 	if reserveUrl == "" {
@@ -113,12 +111,12 @@ func findReserveUrl(eventTime time.Time) (string, error) {
 	return reserveUrl, err
 }
 
-func postRegistration(registerUrl string) error {
+func postRegistration(reserveUrl string) error {
 
 	browser := surf.NewBrowser()
-	err := browser.Open(registerUrl)
+	err := browser.Open(reserveUrl)
 	if err != nil {
-		return fmt.Errorf("browser.Open(registerUrl) error: %v", err)
+		return fmt.Errorf("browser.Open(reserveUrl) error: %v", err)
 	}
 
 	form, _ := browser.Form("form.form")
@@ -128,6 +126,28 @@ func postRegistration(registerUrl string) error {
 		return fmt.Errorf("form.Submit error: %v", err)
 	}
 
-
 	return nil
+}
+
+func setupLogging() {
+	logger, err := seelog.LoggerFromConfigAsString(`
+	<?xml version="1.0"?>
+	<seelog type="asynctimer" asyncinterval="1000000" minlevel="debug">
+	  <outputs formatid="all">
+		<console/>
+		<rollingfile type="size" filename="ycheckin.log" maxsize="20000000" maxrolls="5"/>
+	  </outputs>
+	  <formats>
+		<format id="all" format="%Date %Time [%LEVEL] [%FuncShort @ %File.%Line] - %Msg%n"/>
+	  </formats>
+	</seelog>
+	`)
+	if err != nil {
+		panic(err)
+	}
+
+	err = seelog.ReplaceLogger(logger)
+	if err != nil {
+		panic(err)
+	}
 }
