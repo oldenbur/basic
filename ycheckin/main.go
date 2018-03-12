@@ -2,11 +2,11 @@ package main
 
 import (
 	"github.com/cihub/seelog"
-	"github.com/oldenbur/sql-parser/go/src/time"
 	"github.com/urfave/cli"
 	"github.com/vrecan/death"
 	"os"
 	"syscall"
+	"time"
 )
 
 const (
