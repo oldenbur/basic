@@ -30,10 +30,11 @@ type RegisterWorker interface {
 type registerWorker struct {
 	wg       *sync.WaitGroup
 	doneChan chan bool
+	loc      *time.Location
 }
 
-func NewRegisterWorker() RegisterWorker {
-	return &registerWorker{&sync.WaitGroup{}, make(chan bool)}
+func NewRegisterWorker(loc *time.Location) RegisterWorker {
+	return &registerWorker{&sync.WaitGroup{}, make(chan bool), loc}
 }
 
 func (w *registerWorker) Work(ticker WeeklyTicker) {
@@ -48,6 +49,7 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 		for {
 			select {
 			case event := <-ticker:
+				event = event.In(w.loc)
 				seelog.Infof("registerWorker event: %v", event)
 
 				success := false

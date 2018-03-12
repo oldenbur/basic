@@ -39,25 +39,19 @@ type weeklyTickerScheduler struct {
 	firer   func(t WeeklyTicker, eventTime time.Time)
 }
 
-func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
+func NewWeeklyTickerScheduler(loc *time.Location) WeeklyTickerScheduler {
 	s := &weeklyTickerScheduler{
 		mutex:         &sync.Mutex{},
 		wg:            &sync.WaitGroup{},
 		pendingEvents: timeSlice{},
 		closeChan:     make(chan bool),
+		loc:           loc,
 		delayer: func(d time.Duration) <-chan time.Time {
 			return time.After(d)
 		},
 		firer: func(t WeeklyTicker, eventTime time.Time) {
 			t <- eventTime
 		},
-	}
-
-	var err error
-	s.loc, err = time.LoadLocation("America/Denver")
-	if err != nil {
-		seelog.Errorf("time.LoadLocation error: %v", err)
-		s.loc = time.Local
 	}
 
 	return s

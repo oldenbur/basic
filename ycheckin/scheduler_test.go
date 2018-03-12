@@ -14,7 +14,7 @@ func init() { setupLogging() }
 
 func TestParseSchedule(t *testing.T) {
 	defer seelog.Flush()
-	s := NewWeeklyTickerScheduler()
+	s := NewWeeklyTickerScheduler(time.Local)
 
 	future := time.Now().Add(500 * time.Millisecond)
 	pat := fmt.Sprintf(`%s_%s`, weekdayToPat(future.Weekday()), future.Format("15:04:05.000"))
