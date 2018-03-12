@@ -52,7 +52,7 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 
 				success := false
 				for i := 0; (i < registerRetries) && !success; i++ {
-					err := w.register(event)
+					err := w.register(event.Add(24 * time.Hour))
 					if err != nil {
 						seelog.Errorf("register error: %v", err)
 					} else {
@@ -78,6 +78,7 @@ func (w *registerWorker) Close() error {
 
 func (r *registerWorker) register(eventTime time.Time) error {
 
+	seelog.Infof("register event: %v", eventTime)
 	reserveUrl, err := r.findReserveUrl(eventTime)
 	if err != nil {
 		return err

@@ -33,13 +33,14 @@ type weeklyTickerScheduler struct {
 	wg            *sync.WaitGroup
 	pendingEvents timeSlice
 	closeChan     chan bool
+	loc           *time.Location
 
 	delayer func(time.Duration) <-chan time.Time
 	firer   func(t WeeklyTicker, eventTime time.Time)
 }
 
 func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
-	return &weeklyTickerScheduler{
+	s := &weeklyTickerScheduler{
 		mutex:         &sync.Mutex{},
 		wg:            &sync.WaitGroup{},
 		pendingEvents: timeSlice{},
@@ -51,6 +52,15 @@ func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
 			t <- eventTime
 		},
 	}
+
+	var err error
+	s.loc, err = time.LoadLocation("America/Denver")
+	if err != nil {
+		seelog.Errorf("time.LoadLocation error: %v", err)
+		s.loc = time.Local
+	}
+
+	return s
 }
 
 func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, error) {
@@ -108,7 +118,7 @@ func (s *weeklyTickerScheduler) rollEvent() time.Time {
 	t := s.pendingEvents[0]
 	s.pendingEvents = append(
 		s.pendingEvents[1:],
-		time.Date(t.Year(), t.Month(), t.Day()+7, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local),
+		time.Date(t.Year(), t.Month(), t.Day()+7, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), s.loc),
 	)
 
 	return t
@@ -197,10 +207,10 @@ func (s *weeklyTickerScheduler) buildPendingDate(dayStr, hourStr, minStr, secStr
 	}
 
 	now := time.Now()
-	t = time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, ms*1000000, time.Local)
+	t = time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, ms*1000000, s.loc)
 	for t.Weekday() != targetDay {
 		seelog.Tracef(`seeking %v: %v`, targetDay, t)
-		t = time.Date(t.Year(), t.Month(), t.Day()+1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local)
+		t = time.Date(t.Year(), t.Month(), t.Day()+1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), s.loc)
 	}
 	seelog.Debugf(`pending date %v: %v`, targetDay, t)
 
