@@ -206,7 +206,7 @@ func (s *weeklyTickerScheduler) buildPendingDate(dayStr, hourStr, minStr, secStr
 		return t, fmt.Errorf(`ms '%s' error: %v`, msStr, err)
 	}
 
-	now := time.Now()
+	now := time.Now().In(s.loc)
 	t = time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, ms*1000000, s.loc)
 	for t.Weekday() != targetDay {
 		seelog.Tracef(`seeking %v: %v`, targetDay, t)
