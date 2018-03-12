@@ -24,12 +24,13 @@ type WeeklyTicker chan time.Time
 
 type WeeklyTickerScheduler interface {
 	io.Closer
+	fmt.Stringer
 	ScheduleWeekly(sched string) (WeeklyTicker, error)
-	PendingEvents() []time.Time
 }
 
 type weeklyTickerScheduler struct {
 	mutex         *sync.Mutex
+	wg            *sync.WaitGroup
 	pendingEvents timeSlice
 	closeChan     chan bool
 
@@ -40,6 +41,7 @@ type weeklyTickerScheduler struct {
 func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
 	return &weeklyTickerScheduler{
 		mutex:         &sync.Mutex{},
+		wg:            &sync.WaitGroup{},
 		pendingEvents: timeSlice{},
 		closeChan:     make(chan bool),
 		delayer: func(d time.Duration) <-chan time.Time {
@@ -52,6 +54,8 @@ func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
 }
 
 func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	ticker := make(WeeklyTicker)
 	var err error
@@ -63,6 +67,8 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	}
 
 	go func() {
+		s.wg.Add(1)
+		defer s.wg.Done()
 
 		for {
 
@@ -88,14 +94,11 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	return ticker, err
 }
 
-func (s *weeklyTickerScheduler) PendingEvents() []time.Time {
+func (s *weeklyTickerScheduler) String() string {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	events := make(timeSlice, len(s.pendingEvents))
-	copy(events, s.pendingEvents)
-
-	return events
+	return fmt.Sprintf("%v", s.pendingEvents)
 }
 
 func (s *weeklyTickerScheduler) rollEvent() time.Time {
@@ -139,6 +142,12 @@ func (s *weeklyTickerScheduler) buildPendingEventQueue(sched string) (timeSlice,
 }
 
 func (s *weeklyTickerScheduler) Close() error {
+
+	seelog.Infof("scheduler closing...")
+	s.closeChan <- true
+	s.wg.Wait()
+	seelog.Infof("scheduler closed")
+
 	return nil
 }
 

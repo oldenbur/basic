@@ -34,16 +34,16 @@
   version = "2.6.0"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/jasonlvhit/gocron"
-
-[[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.2.1"
 
 [[constraint]]
   name = "github.com/urfave/cli"
   version = "1.20.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/vrecan/death"
 
 [[constraint]]
   name = "gopkg.in/headzoo/surf.v1"

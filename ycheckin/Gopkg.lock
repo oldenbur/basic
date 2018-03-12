@@ -38,12 +38,6 @@
   version = "v1.0.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/jasonlvhit/gocron"
-  packages = ["."]
-  revision = "3c914c8681c3998f1dd463d84a4d8c29345e47a4"
-
-[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -63,12 +57,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/vrecan/death"
+  packages = ["."]
+  revision = "a6a7840c1cdd4ad8a1cfe568ea382ae54d710235"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/net"
   packages = [
     "html",
     "html/atom"
   ]
-  revision = "d0aafc73d5cdc42264b0af071c261abac580695e"
+  revision = "ae89d30ce0c63142b652837da33d782e2b0a9b25"
 
 [[projects]]
   name = "gopkg.in/headzoo/surf.v1"
@@ -79,6 +79,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0fa0c168c7e17fb863d2cb053a70eab60ba7c78e252f5a2b9a24a214267e6ff0"
+  inputs-digest = "bf3853ba64d978771debb4b973580d3de94313dc7ebd50e13b1279a0bb3f5397"
   solver-name = "gps-cdcl"
   solver-version = 1

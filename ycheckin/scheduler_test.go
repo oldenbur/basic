@@ -23,14 +23,14 @@ func TestParseSchedule(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, ticker)
 
-	for i, e := range s.PendingEvents() {
-		seelog.Infof("pendingEvent[%d]: %v", i, e)
-	}
+	seelog.Infof("pendingEvents: %v", s)
 
 	tick := <-ticker
 	delta := tick.Sub(future)
 	seelog.Infof("delta: %v", delta)
 	assert.True(t, math.Abs(float64(delta)) < float64(10*time.Millisecond))
+
+	s.Close()
 }
 
 func weekdayToPat(w time.Weekday) string {
