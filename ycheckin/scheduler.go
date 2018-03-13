@@ -33,17 +33,19 @@ type weeklyTickerScheduler struct {
 	wg            *sync.WaitGroup
 	pendingEvents timeSlice
 	closeChan     chan bool
+	loc           *time.Location
 
 	delayer func(time.Duration) <-chan time.Time
 	firer   func(t WeeklyTicker, eventTime time.Time)
 }
 
-func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
-	return &weeklyTickerScheduler{
+func NewWeeklyTickerScheduler(loc *time.Location) WeeklyTickerScheduler {
+	s := &weeklyTickerScheduler{
 		mutex:         &sync.Mutex{},
 		wg:            &sync.WaitGroup{},
 		pendingEvents: timeSlice{},
 		closeChan:     make(chan bool),
+		loc:           loc,
 		delayer: func(d time.Duration) <-chan time.Time {
 			return time.After(d)
 		},
@@ -51,6 +53,8 @@ func NewWeeklyTickerScheduler() WeeklyTickerScheduler {
 			t <- eventTime
 		},
 	}
+
+	return s
 }
 
 func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, error) {
@@ -108,7 +112,7 @@ func (s *weeklyTickerScheduler) rollEvent() time.Time {
 	t := s.pendingEvents[0]
 	s.pendingEvents = append(
 		s.pendingEvents[1:],
-		time.Date(t.Year(), t.Month(), t.Day()+7, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local),
+		time.Date(t.Year(), t.Month(), t.Day()+7, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), s.loc),
 	)
 
 	return t
@@ -196,11 +200,11 @@ func (s *weeklyTickerScheduler) buildPendingDate(dayStr, hourStr, minStr, secStr
 		return t, fmt.Errorf(`ms '%s' error: %v`, msStr, err)
 	}
 
-	now := time.Now()
-	t = time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, ms*1000000, time.Local)
+	now := time.Now().In(s.loc)
+	t = time.Date(now.Year(), now.Month(), now.Day(), hour, min, sec, ms*1000000, s.loc)
 	for t.Weekday() != targetDay {
 		seelog.Tracef(`seeking %v: %v`, targetDay, t)
-		t = time.Date(t.Year(), t.Month(), t.Day()+1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), time.Local)
+		t = time.Date(t.Year(), t.Month(), t.Day()+1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), s.loc)
 	}
 	seelog.Debugf(`pending date %v: %v`, targetDay, t)
 

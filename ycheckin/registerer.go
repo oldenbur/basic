@@ -30,10 +30,11 @@ type RegisterWorker interface {
 type registerWorker struct {
 	wg       *sync.WaitGroup
 	doneChan chan bool
+	loc      *time.Location
 }
 
-func NewRegisterWorker() RegisterWorker {
-	return &registerWorker{&sync.WaitGroup{}, make(chan bool)}
+func NewRegisterWorker(loc *time.Location) RegisterWorker {
+	return &registerWorker{&sync.WaitGroup{}, make(chan bool), loc}
 }
 
 func (w *registerWorker) Work(ticker WeeklyTicker) {
@@ -48,11 +49,12 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 		for {
 			select {
 			case event := <-ticker:
+				event = event.In(w.loc)
 				seelog.Infof("registerWorker event: %v", event)
 
 				success := false
 				for i := 0; (i < registerRetries) && !success; i++ {
-					err := w.register(event)
+					err := w.register(event.Add(24 * time.Hour))
 					if err != nil {
 						seelog.Errorf("register error: %v", err)
 					} else {
@@ -78,6 +80,7 @@ func (w *registerWorker) Close() error {
 
 func (r *registerWorker) register(eventTime time.Time) error {
 
+	seelog.Infof("register event: %v", eventTime)
 	reserveUrl, err := r.findReserveUrl(eventTime)
 	if err != nil {
 		return err

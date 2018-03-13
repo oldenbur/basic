@@ -6,6 +6,7 @@ import (
 	"github.com/vrecan/death"
 	"os"
 	"syscall"
+	"time"
 )
 
 const (
@@ -43,16 +44,23 @@ func yregister(c *cli.Context) error {
 		return seelog.Errorf("%s must be specified", regtimesFlag)
 	}
 
+	var loc *time.Location
+	var err error
+	loc, err = time.LoadLocation("America/Denver")
+	if err != nil {
+		return seelog.Errorf("time.LoadLocation error: %v", err)
+	}
+
 	death := death.NewDeath(syscall.SIGINT, syscall.SIGTERM)
 
-	s := NewWeeklyTickerScheduler()
+	s := NewWeeklyTickerScheduler(loc)
 	ticker, err := s.ScheduleWeekly(sched)
 	if err != nil {
 		return seelog.Errorf("ScheduleWeekly error: %v", err)
 	}
 	seelog.Infof("scheduled events: %v", s)
 
-	w := NewRegisterWorker()
+	w := NewRegisterWorker(loc)
 	w.Work(ticker)
 
 	death.WaitForDeath(s, w)
