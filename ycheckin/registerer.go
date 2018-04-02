@@ -15,12 +15,20 @@ import (
 
 const (
 	ymcaSchedulesUrl  = "https://bouldervalley.consoria.com/%s"
+	ymcaReserveUrl    = "https://bouldervalley.consoria.com/%s/reserve/%s"
 	urlDateFormat     = "2006-01-02"
 	eventTitle        = "Adult Pick-Up"
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 	registerRetries   = 5
+
+	scheduleAheadDuration = 25 * time.Hour
 )
+
+var dayReservationCodes = map[time.Weekday]string{
+	time.Tuesday: "4578",
+	time.Friday:  "4587",
+}
 
 type RegisterWorker interface {
 	io.Closer
@@ -34,6 +42,10 @@ type registerWorker struct {
 }
 
 func NewRegisterWorker(loc *time.Location) RegisterWorker {
+	return newRegisterWorker(loc)
+}
+
+func newRegisterWorker(loc *time.Location) *registerWorker {
 	return &registerWorker{&sync.WaitGroup{}, make(chan bool), loc}
 }
 
@@ -54,7 +66,7 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 
 				success := false
 				for i := 0; (i < registerRetries) && !success; i++ {
-					err := w.register(event.Add(24 * time.Hour))
+					err := w.register(event.Add(scheduleAheadDuration))
 					if err != nil {
 						seelog.Errorf("register error: %v", err)
 					} else {
@@ -81,7 +93,7 @@ func (w *registerWorker) Close() error {
 func (r *registerWorker) register(eventTime time.Time) error {
 
 	seelog.Infof("register event: %v", eventTime)
-	reserveUrl, err := r.findReserveUrl(eventTime)
+	reserveUrl, err := r.inferReserveUrl(eventTime)
 	if err != nil {
 		return err
 	}
@@ -131,6 +143,17 @@ func (r *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 	}
 
 	return reserveUrl, err
+}
+
+func (r *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
+
+	var dayCode string
+	var ok bool
+	if dayCode, ok = dayReservationCodes[eventTime.Weekday()]; !ok {
+		return "", fmt.Errorf("unable to infer reserve url for date: %v  weekday: %v", eventTime, eventTime.Weekday())
+	}
+
+	return fmt.Sprintf(ymcaReserveUrl, eventTime.Format(urlDateFormat), dayCode), nil
 }
 
 func (r *registerWorker) postRegistration(reserveUrl string) error {

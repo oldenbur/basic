@@ -3,3 +3,5 @@ vendor
 ycheckin
 ycheckin.log*
 
+*.out
+
