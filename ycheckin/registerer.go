@@ -91,7 +91,7 @@ func (w *registerWorker) Close() error {
 func (r *registerWorker) register(eventTime time.Time) error {
 
 	seelog.Infof("register event: %v", eventTime)
-	reserveUrl, err := r.findReserveUrl(eventTime)
+	reserveUrl, err := r.inferReserveUrl(eventTime)
 	if err != nil {
 		return err
 	}
