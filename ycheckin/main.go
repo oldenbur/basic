@@ -67,6 +67,7 @@ func yregister(c *cli.Context) error {
 
 	return nil
 }
+
 func setupLogging() {
 	logger, err := seelog.LoggerFromConfigAsString(`
 	<?xml version="1.0"?>

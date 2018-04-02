@@ -15,12 +15,18 @@ import (
 
 const (
 	ymcaSchedulesUrl  = "https://bouldervalley.consoria.com/%s"
+	ymcaReserveUrl    = "https://bouldervalley.consoria.com/%s/reserve/%s"
 	urlDateFormat     = "2006-01-02"
 	eventTitle        = "Adult Pick-Up"
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 	registerRetries   = 5
 )
+
+var dayReservationCodes = map[time.Weekday]string{
+	time.Tuesday: "4578",
+	time.Friday:  "4587",
+}
 
 type RegisterWorker interface {
 	io.Closer
@@ -34,6 +40,10 @@ type registerWorker struct {
 }
 
 func NewRegisterWorker(loc *time.Location) RegisterWorker {
+	return newRegisterWorker(loc)
+}
+
+func newRegisterWorker(loc *time.Location) *registerWorker {
 	return &registerWorker{&sync.WaitGroup{}, make(chan bool), loc}
 }
 
@@ -131,6 +141,17 @@ func (r *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 	}
 
 	return reserveUrl, err
+}
+
+func (r *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
+
+	var dayCode string
+	var ok bool
+	if dayCode, ok = dayReservationCodes[eventTime.Weekday()]; !ok {
+		return "", fmt.Errorf("unable to infer reserve url for date: %v  weekday: %v", eventTime, eventTime.Weekday())
+	}
+
+	return fmt.Sprintf(ymcaReserveUrl, eventTime.Format(urlDateFormat), dayCode), nil
 }
 
 func (r *registerWorker) postRegistration(reserveUrl string) error {
