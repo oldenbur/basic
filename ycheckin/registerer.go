@@ -21,6 +21,8 @@ const (
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 	registerRetries   = 5
+
+	scheduleAheadDuration = 25 * time.Hour
 )
 
 var dayReservationCodes = map[time.Weekday]string{
@@ -64,7 +66,7 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 
 				success := false
 				for i := 0; (i < registerRetries) && !success; i++ {
-					err := w.register(event.Add(24 * time.Hour))
+					err := w.register(event.Add(scheduleAheadDuration))
 					if err != nil {
 						seelog.Errorf("register error: %v", err)
 					} else {
