@@ -28,6 +28,7 @@ const (
 var dayReservationCodes = map[time.Weekday]string{
 	time.Tuesday:   "4578",
 	time.Wednesday: "4579",
+	time.Thursday:  "4570",
 	time.Friday:    "4587",
 }
 
