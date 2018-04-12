@@ -11,6 +11,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"regexp"
 )
 
 const (
@@ -21,11 +22,16 @@ const (
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 
-	registerRetryWait     = 5 * time.Second // 720 tries per hour
-	registerRetryLogIntvl = 60
-	registerRetryMax      = 2160
-	scheduleAheadDuration = 27 * time.Hour
+	regPostAlert_Reserved = "Your spot has been reserved" // "Your spot has been reserved and an email with more information has been sent to your email"
+	regPostAlert_24hours = "Reservations may not be made until 24 hours prior"
+
+	scheduleAheadDuration = 72 * time.Hour
+	registerRetryWait     = 300 * time.Second // 12 tries per hour
+	registerRetryMax      = 12 * 72
+	registerRetryLogIntvl = 1
 )
+
+var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
 
 var dayReservationCodes = map[time.Weekday]string{
 	time.Tuesday:   "4578",
@@ -181,6 +187,7 @@ func (w *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
 
 func (w *registerWorker) PostRegistration(reserveUrl string) error {
 
+	seelog.Debugf("posting registration at %s", reserveUrl)
 	browser := surf.NewBrowser()
 	err := browser.Open(reserveUrl)
 	if err != nil {
@@ -190,8 +197,16 @@ func (w *registerWorker) PostRegistration(reserveUrl string) error {
 	form, _ := browser.Form("form.form")
 	form.Input("name", registrationName)
 	form.Input("email", registrationEmail)
-	if form.Submit() != nil {
+	if err = form.Submit(); err != nil {
 		return fmt.Errorf("form.Submit error: %v", err)
+	}
+
+	alertText := browser.Dom().Find("div.alert").First().Text()
+	alertText = wsRegexp.ReplaceAllString(alertText, "")
+	seelog.Debugf("post alert text: %v", alertText)
+
+	if !strings.Contains(alertText, regPostAlert_Reserved) {
+		return fmt.Errorf("registration failed: %v", alertText)
 	}
 
 	return nil
