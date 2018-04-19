@@ -24,8 +24,8 @@ type WeeklyTicker chan time.Time
 
 type WeeklyTickerScheduler interface {
 	io.Closer
-	fmt.Stringer
 	ScheduleWeekly(sched string) (WeeklyTicker, error)
+	Pending() []time.Time
 }
 
 type weeklyTickerScheduler struct {
@@ -98,11 +98,17 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	return ticker, err
 }
 
-func (s *weeklyTickerScheduler) String() string {
+func (s *weeklyTickerScheduler) Pending() []time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return fmt.Sprintf("%v", s.pendingEvents)
+	pendingCopy := []time.Time{}
+	copied := copy(s.pendingEvents, pendingCopy)
+	if len(s.pendingEvents) != copied {
+		seelog.Warnf("Pending expected to copy %d events, but actually copied %d", len(s.pendingEvents), copied)
+	}
+
+	return pendingCopy
 }
 
 func (s *weeklyTickerScheduler) rollEvent() time.Time {
