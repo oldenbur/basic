@@ -15,6 +15,10 @@ type RegHttp interface {
 }
 
 func NewRegHttp(addr string, sched WeeklyTickerScheduler, reg RegisterWorker) RegHttp {
+	return newRegHttp(addr, sched, reg)
+}
+
+func newRegHttp(addr string, sched WeeklyTickerScheduler, reg RegisterWorker) *regHttp {
 	return &regHttp{
 		addr:  addr,
 		sched: sched,
