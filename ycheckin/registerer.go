@@ -9,9 +9,9 @@ import (
 	"errors"
 	"github.com/cihub/seelog"
 	"io"
+	"regexp"
 	"strings"
 	"sync"
-	"regexp"
 )
 
 const (
@@ -23,12 +23,12 @@ const (
 	registrationEmail = "oldenbur@gmail.com"
 
 	regPostAlert_Reserved = "Your spot has been reserved" // "Your spot has been reserved and an email with more information has been sent to your email"
-	regPostAlert_24hours = "Reservations may not be made until 24 hours prior"
+	regPostAlert_24hours  = "Reservations may not be made until 24 hours prior"
 
-	scheduleAheadDuration = 72 * time.Hour
-	registerRetryWait     = 300 * time.Second // 12 tries per hour
-	registerRetryMax      = 12 * 72
-	registerRetryLogIntvl = 1
+	scheduleAheadDuration = 48 * time.Hour
+	registerRetryWait     = time.Second
+	registerRetryMax      = 3600
+	registerRetryLogIntvl = 100
 )
 
 var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
