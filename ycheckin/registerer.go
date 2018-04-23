@@ -9,6 +9,7 @@ import (
 	"errors"
 	"github.com/cihub/seelog"
 	"io"
+	"regexp"
 	"strings"
 	"sync"
 )
@@ -20,10 +21,17 @@ const (
 	eventTitle        = "Adult Pick-Up"
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
-	registerRetries   = 5
 
-	scheduleAheadDuration = 25 * time.Hour
+	regPostAlert_Reserved = "Your spot has been reserved" // "Your spot has been reserved and an email with more information has been sent to your email"
+	regPostAlert_24hours  = "Reservations may not be made until 24 hours prior"
+
+	scheduleAheadDuration = 48 * time.Hour
+	registerRetryWait     = time.Second
+	registerRetryMax      = 3600
+	registerRetryLogIntvl = 100
 )
+
+var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
 
 var dayReservationCodes = map[time.Weekday]string{
 	time.Tuesday:   "4578",
@@ -37,6 +45,10 @@ type RegisterWorker interface {
 	Work(ticker WeeklyTicker)
 }
 
+type RegisterUrlPoster interface {
+	PostRegistration(reserveUrl string) error
+}
+
 type registerWorker struct {
 	wg       *sync.WaitGroup
 	doneChan chan bool
@@ -45,6 +57,10 @@ type registerWorker struct {
 
 func NewRegisterWorker(loc *time.Location) RegisterWorker {
 	return newRegisterWorker(loc)
+}
+
+func NewRegisterUrlPoster() RegisterUrlPoster {
+	return newRegisterWorker(time.Local)
 }
 
 func newRegisterWorker(loc *time.Location) *registerWorker {
@@ -66,21 +82,32 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 				event = event.In(w.loc)
 				seelog.Infof("registerWorker event: %v", event)
 
-				success := false
-				for i := 0; (i < registerRetries) && !success; i++ {
-					err := w.register(event.Add(scheduleAheadDuration))
-					if err != nil {
-						seelog.Errorf("register error: %v", err)
-					} else {
-						success = true
-					}
-				}
+				w.registerForEvent(event.Add(scheduleAheadDuration))
 
 			case <-w.doneChan:
 				return
 			}
 		}
 	}()
+}
+
+func (w *registerWorker) registerForEvent(event time.Time) {
+
+	for i := 0; i < registerRetryMax; i++ {
+
+		err := w.register(event)
+		if err != nil {
+			if (i % registerRetryLogIntvl) == 0 {
+				seelog.Errorf("register error: %v", err)
+			}
+		} else {
+			return
+		}
+
+		time.Sleep(registerRetryWait)
+	}
+
+	seelog.Warnf("giving up registration after %d attempts", registerRetryMax)
 }
 
 func (w *registerWorker) Close() error {
@@ -92,18 +119,18 @@ func (w *registerWorker) Close() error {
 	return nil
 }
 
-func (r *registerWorker) register(eventTime time.Time) error {
+func (w *registerWorker) register(eventTime time.Time) error {
 
 	seelog.Infof("register event: %v", eventTime)
-	reserveUrl, err := r.inferReserveUrl(eventTime)
+	reserveUrl, err := w.inferReserveUrl(eventTime)
 	if err != nil {
 		return err
 	}
 
-	return r.postRegistration(reserveUrl)
+	return w.PostRegistration(reserveUrl)
 }
 
-func (r *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
+func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 
 	var reserveUrl string
 	var err error
@@ -147,7 +174,7 @@ func (r *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 	return reserveUrl, err
 }
 
-func (r *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
+func (w *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
 
 	var dayCode string
 	var ok bool
@@ -158,8 +185,9 @@ func (r *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
 	return fmt.Sprintf(ymcaReserveUrl, eventTime.Format(urlDateFormat), dayCode), nil
 }
 
-func (r *registerWorker) postRegistration(reserveUrl string) error {
+func (w *registerWorker) PostRegistration(reserveUrl string) error {
 
+	seelog.Debugf("posting registration at %s", reserveUrl)
 	browser := surf.NewBrowser()
 	err := browser.Open(reserveUrl)
 	if err != nil {
@@ -169,8 +197,16 @@ func (r *registerWorker) postRegistration(reserveUrl string) error {
 	form, _ := browser.Form("form.form")
 	form.Input("name", registrationName)
 	form.Input("email", registrationEmail)
-	if form.Submit() != nil {
+	if err = form.Submit(); err != nil {
 		return fmt.Errorf("form.Submit error: %v", err)
+	}
+
+	alertText := browser.Dom().Find("div.alert").First().Text()
+	alertText = wsRegexp.ReplaceAllString(alertText, "")
+	seelog.Debugf("post alert text: %v", alertText)
+
+	if !strings.Contains(alertText, regPostAlert_Reserved) {
+		return fmt.Errorf("registration failed: %v", alertText)
 	}
 
 	return nil
