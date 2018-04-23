@@ -7,11 +7,13 @@ import (
 	"os"
 	"syscall"
 	"time"
+	"fmt"
 )
 
 const (
 	scheduleTimeFormat = "3:04 PM"
 	regtimesFlag       = "regtimes"
+	regUrlFlag         = "url"
 )
 
 func main() {
@@ -21,14 +23,30 @@ func main() {
 	seelog.Infof("ycheckin started")
 	app := cli.NewApp()
 
-	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  regtimesFlag,
-			Usage: "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+	app.Commands = []cli.Command{
+		{
+			Name:  "regloop",
+			Usage: fmt.Sprintf("registration schedule loop - e.g. regloop --%s MON_06:00:00.000,THU_06:00:00.000", regtimesFlag),
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  regtimesFlag,
+					Usage: "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+				},
+			},
+			Action: yregister,
+		},
+		{
+			Name:  "post",
+			Usage: "post a single registration on a specified form url",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  regUrlFlag,
+					Usage: "registration url",
+				},
+			},
+			Action: postRegistration,
 		},
 	}
-
-	app.Action = yregister
 
 	err := app.Run(os.Args)
 	if err != nil {
@@ -66,6 +84,17 @@ func yregister(c *cli.Context) error {
 	death.WaitForDeath(s, w)
 
 	return nil
+}
+
+func postRegistration(c *cli.Context) error {
+
+	url := c.String(regUrlFlag)
+	if url == "" {
+		return seelog.Errorf("%s must be specified", regUrlFlag)
+	}
+
+	p := NewRegisterUrlPoster()
+	return p.PostRegistration(url)
 }
 
 func setupLogging() {
