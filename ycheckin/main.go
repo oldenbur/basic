@@ -1,19 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"github.com/cihub/seelog"
 	"github.com/urfave/cli"
 	"github.com/vrecan/death"
 	"os"
 	"syscall"
 	"time"
-	"fmt"
 )
 
 const (
-	scheduleTimeFormat = "3:04 PM"
-	regtimesFlag       = "regtimes"
-	regUrlFlag         = "url"
+	scheduleTimeFormat          = "3:04 PM"
+	regtimesFlag                = "regtimes"
+	regtimesEnv                 = "YC_REG_TIMES"
+	scheduleAheadDurationMsFlag = "schedaheadms"
+	scheduleAheadDurationMsEnv  = "YC_SCHED_AHEAD_MS"
+	registerRetryWaitMsFlag     = "regretrywaitms"
+	registerRetryWaitMsEnv      = "YC_REG_RETRY_WAIT_MS"
+	registerRetryMaxFlag        = "regretrymax"
+	registerRetryMaxEnv         = "YC_REG_RETRY_MAX"
+	registerRetryLogIntvlFlag   = "regretrylog"
+	registerRetryLogIntvlEnv    = "YC_REG_RETRY_LOG"
+	regUrlFlag                  = "url"
 )
 
 func main() {
@@ -29,8 +38,29 @@ func main() {
 			Usage: fmt.Sprintf("registration schedule loop - e.g. regloop --%s MON_06:00:00.000,THU_06:00:00.000", regtimesFlag),
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  regtimesFlag,
-					Usage: "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+					Name:   regtimesFlag,
+					Usage:  "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+					EnvVar: regtimesEnv,
+				},
+				cli.IntFlag{
+					Name:   scheduleAheadDurationMsFlag,
+					Usage:  "duration, in milliseconds, between registration and the event, e.g. 172800000 for 48 hours",
+					EnvVar: scheduleAheadDurationMsEnv,
+				},
+				cli.IntFlag{
+					Name:   registerRetryWaitMsFlag,
+					Usage:  "duration, in milliseconds, to wait between registration attempts",
+					EnvVar: registerRetryWaitMsEnv,
+				},
+				cli.IntFlag{
+					Name:   registerRetryMaxFlag,
+					Usage:  "maximum number of registration attempts per event",
+					EnvVar: registerRetryMaxEnv,
+				},
+				cli.IntFlag{
+					Name:   registerRetryLogIntvlFlag,
+					Usage:  "number of attempts between logged registration failures",
+					EnvVar: registerRetryLogIntvlEnv,
 				},
 			},
 			Action: yregister,
@@ -78,7 +108,7 @@ func yregister(c *cli.Context) error {
 	}
 	seelog.Infof("scheduled events: %v", s)
 
-	w := NewRegisterWorker(loc)
+	w := NewRegisterWorker(NewConfigBuilder().WithLocation(loc).Build())
 	w.Work(ticker)
 
 	death.WaitForDeath(s, w)
