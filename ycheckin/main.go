@@ -23,6 +23,8 @@ const (
 	registerRetryLogIntvlFlag   = "regretrylog"
 	registerRetryLogIntvlEnv    = "YC_REG_RETRY_LOG"
 	regUrlFlag                  = "url"
+	regHttpAddrFlag             = "addr"
+	regHttpAddrEnv              = "YC_ADDR"
 )
 
 func main() {
@@ -62,6 +64,11 @@ func main() {
 					Usage:  "number of attempts between logged registration failures",
 					EnvVar: registerRetryLogIntvlEnv,
 				},
+				cli.StringFlag{
+					Name:   regHttpAddrFlag,
+					Usage:  "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+					EnvVar: regHttpAddrEnv,
+				},
 			},
 			Action: yregister,
 		},
@@ -92,28 +99,60 @@ func yregister(c *cli.Context) error {
 		return seelog.Errorf("%s must be specified", regtimesFlag)
 	}
 
-	var loc *time.Location
+	var config *ycheckinConfig
 	var err error
-	loc, err = time.LoadLocation("America/Denver")
-	if err != nil {
-		return seelog.Errorf("time.LoadLocation error: %v", err)
+	if config, err = buildConfig(c); err != nil {
+		return err
 	}
 
-	death := death.NewDeath(syscall.SIGINT, syscall.SIGTERM)
-
-	s := NewWeeklyTickerScheduler(loc)
+	s := NewWeeklyTickerScheduler(config.RegisterLocation())
 	ticker, err := s.ScheduleWeekly(sched)
 	if err != nil {
 		return seelog.Errorf("ScheduleWeekly error: %v", err)
 	}
 	seelog.Infof("scheduled events: %v", s)
 
-	w := NewRegisterWorker(NewConfigBuilder().WithLocation(loc).Build())
+	w := NewRegisterWorker(config)
 	w.Work(ticker)
 
-	death.WaitForDeath(s, w)
+	h := newRegHttp(config, s, w)
+	err = h.Start()
+	if err != nil {
+		return seelog.Errorf("regHttp.Start error: %v", err)
+	}
+
+	death.NewDeath(syscall.SIGINT, syscall.SIGTERM).WaitForDeath(s, w)
 
 	return nil
+}
+
+func buildConfig(c *cli.Context) (*ycheckinConfig, error) {
+
+	var loc *time.Location
+	var err error
+	loc, err = time.LoadLocation("America/Denver")
+	if err != nil {
+		return nil, seelog.Errorf("time.LoadLocation error: %v", err)
+	}
+
+	configBuilder := NewConfigBuilder().WithLocation(loc)
+	if c.Int(scheduleAheadDurationMsFlag) != 0 {
+		configBuilder.WithScheduleAheadDuration(time.Duration(c.Int(scheduleAheadDurationMsFlag)) * time.Millisecond)
+	}
+	if c.Int(registerRetryWaitMsFlag) != 0 {
+		configBuilder.WithRegisterRetryWait(time.Duration(c.Int(registerRetryWaitMsFlag)) * time.Millisecond)
+	}
+	if c.Int(registerRetryMaxFlag) != 0 {
+		configBuilder.WithRegisterRetryMax(c.Int(registerRetryMaxFlag))
+	}
+	if c.Int(registerRetryLogIntvlFlag) != 0 {
+		configBuilder.WithRegisterRetryLogIntvl(c.Int(registerRetryLogIntvlFlag))
+	}
+	if c.String(regHttpAddrFlag) != "" {
+		configBuilder.WithHttpAddr(c.String(regHttpAddrFlag))
+	}
+
+	return configBuilder.Build(), nil
 }
 
 func postRegistration(c *cli.Context) error {

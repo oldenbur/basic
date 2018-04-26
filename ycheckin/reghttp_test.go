@@ -21,11 +21,13 @@ func TestHandlePending(t *testing.T) {
 	}
 
 	resp := &mockResponseWriter{}
-	s := newRegHttp("", ticker, nil)
-	s.handlePending(resp, nil)
+	s := newRegHttp(nil, ticker, nil)
+	s.handlePending(resp, &http.Request{Method: "GET"})
 
-	assert.Equal(t, resp.response.String(),
-		`[{"pendingReg":"2018-04-03 05:30:00 -0600 MDT"},{"pendingReg":"2018-04-06 05:45:00 -0600 MDT"}]`)
+	assert.Equal(t,
+		`[{"pendingReg":"2018-04-03 05:30:00 -0600 MDT"},{"pendingReg":"2018-04-06 05:45:00 -0600 MDT"}]`,
+		resp.response.String(),
+	)
 }
 
 type mockTicker struct {
@@ -46,3 +48,8 @@ func (w *mockResponseWriter) Write(r []byte) (int, error) {
 	return len(r), nil
 }
 func (w *mockResponseWriter) WriteHeader(statusCode int) {}
+
+type mockConfigMarshaler struct{}
+
+func (c *mockConfigMarshaler) MarshalJSON() string { return `{"mockConfig": "true"}` }
+func (c *mockConfigMarshaler) HttpAddr() string    { return `httpAddr` }

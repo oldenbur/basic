@@ -14,31 +14,43 @@ type RegHttp interface {
 	Start() error
 }
 
-func NewRegHttp(addr string, sched WeeklyTickerScheduler, reg RegisterWorker) RegHttp {
-	return newRegHttp(addr, sched, reg)
+type RegHttpConfig interface {
+	HttpAddr() string
+	MarshalJSON() string
 }
 
-func newRegHttp(addr string, sched WeeklyTickerScheduler, reg RegisterWorker) *regHttp {
+func NewRegHttp(config RegHttpConfig, sched WeeklyTickerScheduler, reg RegisterWorker) RegHttp {
+	return newRegHttp(config, sched, reg)
+}
+
+func newRegHttp(config RegHttpConfig, sched WeeklyTickerScheduler, reg RegisterWorker) *regHttp {
 	return &regHttp{
-		addr:  addr,
-		sched: sched,
-		reg:   reg,
+		config: config,
+		sched:  sched,
+		reg:    reg,
 	}
 }
 
 type regHttp struct {
-	srv   *http.Server
-	addr  string
-	sched WeeklyTickerScheduler
-	reg   RegisterWorker
+	config RegHttpConfig
+	srv    *http.Server
+	sched  WeeklyTickerScheduler
+	reg    RegisterWorker
 }
 
 func (r *regHttp) Start() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/pending", r.handlePending)
+	mux.HandleFunc("/config", r.handleConfig)
 
 	r.srv = &http.Server{Handler: mux}
+	go func() {
+		err := r.srv.ListenAndServe()
+		if err != nil {
+			seelog.Errorf("ListenAndServe error: %v", err)
+		}
+	}()
 
 	return nil
 }
@@ -53,6 +65,8 @@ func (r *regHttp) Close() error {
 }
 
 func (r *regHttp) handlePending(w http.ResponseWriter, req *http.Request) {
+
+	seelog.Info("method: %v", req.Method)
 
 	pendings := r.sched.Pending()
 	pendingRegs := []pendingRegItem{}
@@ -72,4 +86,10 @@ func (r *regHttp) handlePending(w http.ResponseWriter, req *http.Request) {
 
 type pendingRegItem struct {
 	PendingReg string `json:"pendingReg"`
+}
+
+func (r *regHttp) handleConfig(w http.ResponseWriter, req *http.Request) {
+
+	seelog.Info("method: %v", req.Method)
+	io.WriteString(w, string(r.config.MarshalJSON()))
 }

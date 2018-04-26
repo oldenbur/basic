@@ -12,7 +12,7 @@ func init() { setupLogging() }
 
 func TestInferTuesday(t *testing.T) {
 	defer seelog.Flush()
-	s := newRegisterWorker(time.Local)
+	s := newRegisterWorker(NewConfigBuilder().Build())
 
 	testTime := time.Date(2018, 4, 3, 5, 30, 0, 0, time.Local)
 	url, err := s.inferReserveUrl(testTime)
