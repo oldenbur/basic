@@ -1,22 +1,17 @@
-# $ docker build -t oldenbur/kclient .
+# $ docker build -t oldenbur/ycheckin .
+# $ docker run -e "YC_REG_TIMES=SUN_07:00:00.000" -p 8989:8989 --rm oldenbur/ycheckin
+# $ curl 192.168.1.5:8989/config
 
 FROM golang:latest
 
-# Install librdkafka
-RUN mkdir -p /root/src && cd /root/src
-WORKDIR /root/src
-RUN git clone https://github.com/edenhill/librdkafka.git
-WORKDIR /root/src/librdkafka
-RUN ./configure
-RUN make
-RUN make install
-
-ENV LD_LIBRARY_PATH /usr/local/lib
-
-WORKDIR /go/src/github.com/oldenbur/esCluster/kclient
+WORKDIR /go/src/github.com/oldenbur/linux-util/ycheckin
 COPY . .
 
 RUN go get -d -v ./...
 RUN go install -v ./...
 
-CMD ["kclient","consume"]
+ENV YC_REG_TIMES ${YC_REG_TIMES}
+
+EXPOSE 8989
+
+CMD ["ycheckin","regloop"]

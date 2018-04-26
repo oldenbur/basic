@@ -110,7 +110,6 @@ func yregister(c *cli.Context) error {
 	if err != nil {
 		return seelog.Errorf("ScheduleWeekly error: %v", err)
 	}
-	seelog.Infof("scheduled events: %v", s)
 
 	w := NewRegisterWorker(config)
 	w.Work(ticker)

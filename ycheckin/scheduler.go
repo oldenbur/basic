@@ -65,6 +65,7 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	var err error
 
 	s.pendingEvents, _ = s.buildPendingEventQueue(sched)
+	seelog.Infof("scheduled events: %v", s.pendingEvents)
 
 	if len(s.pendingEvents) < 1 {
 		return ticker, fmt.Errorf("schedule contains no events")
@@ -102,8 +103,9 @@ func (s *weeklyTickerScheduler) Pending() []time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	pendingCopy := []time.Time{}
-	copied := copy(s.pendingEvents, pendingCopy)
+	seelog.Infof("scheduled events: %v", s.pendingEvents)
+	pendingCopy := make([]time.Time, len(s.pendingEvents))
+	copied := copy(pendingCopy, s.pendingEvents)
 	if len(s.pendingEvents) != copied {
 		seelog.Warnf("Pending expected to copy %d events, but actually copied %d", len(s.pendingEvents), copied)
 	}

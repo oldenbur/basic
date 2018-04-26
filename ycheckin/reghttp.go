@@ -44,7 +44,7 @@ func (r *regHttp) Start() error {
 	mux.HandleFunc("/pending", r.handlePending)
 	mux.HandleFunc("/config", r.handleConfig)
 
-	r.srv = &http.Server{Handler: mux}
+	r.srv = &http.Server{Handler: mux, Addr: r.config.HttpAddr()}
 	go func() {
 		err := r.srv.ListenAndServe()
 		if err != nil {
@@ -66,7 +66,7 @@ func (r *regHttp) Close() error {
 
 func (r *regHttp) handlePending(w http.ResponseWriter, req *http.Request) {
 
-	seelog.Info("method: %v", req.Method)
+	seelog.Infof("method: %v", req.Method)
 
 	pendings := r.sched.Pending()
 	pendingRegs := []pendingRegItem{}
@@ -90,6 +90,6 @@ type pendingRegItem struct {
 
 func (r *regHttp) handleConfig(w http.ResponseWriter, req *http.Request) {
 
-	seelog.Info("method: %v", req.Method)
+	seelog.Infof("method: %v", req.Method)
 	io.WriteString(w, string(r.config.MarshalJSON()))
 }
