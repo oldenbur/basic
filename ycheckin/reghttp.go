@@ -46,6 +46,7 @@ func (r *regHttp) Start() error {
 
 	r.srv = &http.Server{Handler: mux, Addr: r.config.HttpAddr()}
 	go func() {
+		seelog.Infof("connecting http server on %s", r.config.HttpAddr())
 		err := r.srv.ListenAndServe()
 		if err != nil {
 			seelog.Errorf("ListenAndServe error: %v", err)

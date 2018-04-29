@@ -79,6 +79,10 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 
 			event := s.rollEvent()
 			delay := event.Sub(time.Now())
+			if delay < 0 {
+				seelog.Infof("negative delay, rolling: %v", delay)
+				continue
+			}
 			eventChan := s.delayer(delay)
 			seelog.Infof("waiting %v for next event: %v", delay, event)
 
