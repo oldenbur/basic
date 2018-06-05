@@ -24,22 +24,28 @@ type WeeklyTicker chan time.Time
 
 type WeeklyTickerScheduler interface {
 	io.Closer
-	fmt.Stringer
 	ScheduleWeekly(sched string) (WeeklyTicker, error)
+	Pending() []time.Time
 }
 
 type weeklyTickerScheduler struct {
 	mutex         *sync.Mutex
 	wg            *sync.WaitGroup
+	event         time.Time
 	pendingEvents timeSlice
 	closeChan     chan bool
 	loc           *time.Location
 
-	delayer func(time.Duration) <-chan time.Time
-	firer   func(t WeeklyTicker, eventTime time.Time)
+	delayer    func(time.Duration) <-chan time.Time
+	firer      func(t WeeklyTicker, eventTime time.Time)
+	progRolled func()
 }
 
 func NewWeeklyTickerScheduler(loc *time.Location) WeeklyTickerScheduler {
+	return newWeeklyTickerScheduler(loc)
+}
+
+func newWeeklyTickerScheduler(loc *time.Location) *weeklyTickerScheduler {
 	s := &weeklyTickerScheduler{
 		mutex:         &sync.Mutex{},
 		wg:            &sync.WaitGroup{},
@@ -52,6 +58,7 @@ func NewWeeklyTickerScheduler(loc *time.Location) WeeklyTickerScheduler {
 		firer: func(t WeeklyTicker, eventTime time.Time) {
 			t <- eventTime
 		},
+		progRolled: func() {},
 	}
 
 	return s
@@ -65,6 +72,7 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	var err error
 
 	s.pendingEvents, _ = s.buildPendingEventQueue(sched)
+	seelog.Infof("scheduled events: %v", s.pendingEvents)
 
 	if len(s.pendingEvents) < 1 {
 		return ticker, fmt.Errorf("schedule contains no events")
@@ -76,10 +84,15 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 
 		for {
 
-			event := s.rollEvent()
-			delay := event.Sub(time.Now())
+			s.event = s.rollEvent()
+			delay := s.event.Sub(time.Now())
+			if delay < 0 {
+				seelog.Infof("negative delay, rolling: %v", delay)
+				continue
+			}
 			eventChan := s.delayer(delay)
-			seelog.Infof("waiting %v for next event: %v", delay, event)
+			seelog.Infof("waiting %v for next event: %v", delay, s.event)
+			s.progRolled()
 
 			select {
 			case eventTime := <-eventChan:
@@ -98,11 +111,18 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 	return ticker, err
 }
 
-func (s *weeklyTickerScheduler) String() string {
+func (s *weeklyTickerScheduler) Pending() []time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return fmt.Sprintf("%v", s.pendingEvents)
+	seelog.Infof("scheduled events: %v", s.pendingEvents)
+	pendingCopy := make([]time.Time, len(s.pendingEvents))
+	copied := copy(pendingCopy, s.pendingEvents)
+	if len(s.pendingEvents) != copied {
+		seelog.Warnf("Pending expected to copy %d events, but actually copied %d", len(s.pendingEvents), copied)
+	}
+
+	return append([]time.Time{s.event}, pendingCopy...)
 }
 
 func (s *weeklyTickerScheduler) rollEvent() time.Time {

@@ -24,11 +24,6 @@ const (
 
 	regPostAlert_Reserved = "Your spot has been reserved" // "Your spot has been reserved and an email with more information has been sent to your email"
 	regPostAlert_24hours  = "Reservations may not be made until 24 hours prior"
-
-	scheduleAheadDuration = 48 * time.Hour
-	registerRetryWait     = time.Second
-	registerRetryMax      = 3600
-	registerRetryLogIntvl = 100
 )
 
 var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
@@ -38,6 +33,14 @@ var dayReservationCodes = map[time.Weekday]string{
 	time.Wednesday: "4579",
 	time.Thursday:  "4570",
 	time.Friday:    "4587",
+}
+
+type RegisterWorkerConfig interface {
+	RegisterLocation() *time.Location
+	ScheduleAheadDuration() time.Duration
+	RegisterRetryWait() time.Duration
+	RegisterRetryMax() int
+	RegisterRetryLogIntvl() int
 }
 
 type RegisterWorker interface {
@@ -52,19 +55,19 @@ type RegisterUrlPoster interface {
 type registerWorker struct {
 	wg       *sync.WaitGroup
 	doneChan chan bool
-	loc      *time.Location
+	config   RegisterWorkerConfig
 }
 
-func NewRegisterWorker(loc *time.Location) RegisterWorker {
-	return newRegisterWorker(loc)
+func NewRegisterWorker(config RegisterWorkerConfig) RegisterWorker {
+	return newRegisterWorker(config)
 }
 
 func NewRegisterUrlPoster() RegisterUrlPoster {
-	return newRegisterWorker(time.Local)
+	return newRegisterWorker(NewConfigBuilder().Build())
 }
 
-func newRegisterWorker(loc *time.Location) *registerWorker {
-	return &registerWorker{&sync.WaitGroup{}, make(chan bool), loc}
+func newRegisterWorker(config RegisterWorkerConfig) *registerWorker {
+	return &registerWorker{&sync.WaitGroup{}, make(chan bool), config}
 }
 
 func (w *registerWorker) Work(ticker WeeklyTicker) {
@@ -79,10 +82,10 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 		for {
 			select {
 			case event := <-ticker:
-				event = event.In(w.loc)
+				event = event.In(w.config.RegisterLocation())
 				seelog.Infof("registerWorker event: %v", event)
 
-				w.registerForEvent(event.Add(scheduleAheadDuration))
+				w.registerForEvent(event.Add(w.config.ScheduleAheadDuration()))
 
 			case <-w.doneChan:
 				return
@@ -93,21 +96,21 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 
 func (w *registerWorker) registerForEvent(event time.Time) {
 
-	for i := 0; i < registerRetryMax; i++ {
+	for i := 0; i < w.config.RegisterRetryMax(); i++ {
 
 		err := w.register(event)
 		if err != nil {
-			if (i % registerRetryLogIntvl) == 0 {
+			if (i % w.config.RegisterRetryLogIntvl()) == 0 {
 				seelog.Errorf("register error: %v", err)
 			}
 		} else {
 			return
 		}
 
-		time.Sleep(registerRetryWait)
+		time.Sleep(w.config.RegisterRetryWait())
 	}
 
-	seelog.Warnf("giving up registration after %d attempts", registerRetryMax)
+	seelog.Warnf("giving up registration after %d attempts", w.config.RegisterRetryMax())
 }
 
 func (w *registerWorker) Close() error {

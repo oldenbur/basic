@@ -4,4 +4,5 @@ ycheckin
 ycheckin.log*
 
 *.out
+*.swp
 
