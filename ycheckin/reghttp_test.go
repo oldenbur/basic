@@ -13,11 +13,18 @@ import (
 func init() { setupLogging() }
 
 func TestHandlePending(t *testing.T) {
+	var loc *time.Location
+	var err error
+	loc, err = time.LoadLocation("America/Denver")
+	if err != nil {
+		t.Error(err)
+	}
+
 	defer seelog.Flush()
 	ticker := &mockTicker{}
 	ticker.pending = []time.Time{
-		time.Date(2018, 4, 3, 5, 30, 0, 0, time.Local),
-		time.Date(2018, 4, 6, 5, 45, 0, 0, time.Local),
+		time.Date(2018, 4, 3, 5, 30, 0, 0, loc),
+		time.Date(2018, 4, 6, 5, 45, 0, 0, loc),
 	}
 
 	resp := &mockResponseWriter{}
