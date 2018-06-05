@@ -18,19 +18,21 @@ const (
 	ymcaSchedulesUrl  = "https://bouldervalley.consoria.com/%s"
 	ymcaReserveUrl    = "https://bouldervalley.consoria.com/%s/reserve/%s"
 	urlDateFormat     = "2006-01-02"
-	eventTitle        = "Adult Pick-Up"
+	eventTitle        = "Adult Pick-Up Hockey"
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 
 	regPostAlert_Reserved = "Your spot has been reserved" // "Your spot has been reserved and an email with more information has been sent to your email"
 	regPostAlert_24hours  = "Reservations may not be made until 24 hours prior"
+	regPostAlert_WaitList = "you have been added to the waitlist"
+	regPostAlert_OneReg   = "one reservation per individual may be made"
 )
 
 var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
 
 var dayReservationCodes = map[time.Weekday]string{
-	time.Tuesday:   "4578",
-	time.Wednesday: "4579",
+	time.Tuesday:   "4578", // 5806
+	time.Wednesday: "4579", // 4580
 	time.Thursday:  "4570",
 	time.Friday:    "4587",
 }
@@ -218,13 +220,14 @@ func (w *registerWorker) PostRegistration(reserveUrl string) error {
 	alertText = wsRegexp.ReplaceAllString(alertText, "")
 	seelog.Debugf("post alert text: %v", alertText)
 
-	if !strings.Contains(alertText, regPostAlert_Reserved) {
+	if !strings.Contains(alertText, regPostAlert_Reserved) &&
+		!strings.Contains(alertText, regPostAlert_WaitList) {
+
 		return fmt.Errorf("registration failed: %v", alertText)
 	}
 
 	return nil
 }
-
 
 func (w *registerWorker) EventRegister(eventTime time.Time) error {
 	return w.register(eventTime)
