@@ -25,6 +25,7 @@ const (
 	regUrlFlag                  = "url"
 	regHttpAddrFlag             = "addr"
 	regHttpAddrEnv              = "YC_ADDR"
+	regEventTime = "regtime"
 )
 
 func main() {
@@ -82,6 +83,17 @@ func main() {
 				},
 			},
 			Action: postRegistration,
+		},
+		{
+			Name:  "event",
+			Usage: "post a single registration for a specified event time",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  regEventTime,
+					Usage: "event time in the format YYYYmmdd_HHMM",
+				},
+			},
+			Action: eventRegistration,
 		},
 	}
 
@@ -161,8 +173,24 @@ func postRegistration(c *cli.Context) error {
 		return seelog.Errorf("%s must be specified", regUrlFlag)
 	}
 
-	p := NewRegisterUrlPoster()
+	p := NewUrlRegistrar()
 	return p.PostRegistration(url)
+}
+
+func eventRegistration(c *cli.Context) error {
+
+	eventVal := c.String(regEventTime)
+	if eventVal == "" {
+		return seelog.Errorf("%s must be specified", regEventTime)
+	}
+
+	event, err := time.Parse("20060102_1504", eventVal)
+	if err != nil {
+		return seelog.Errorf("error parsing timestamp %s: %v", err)
+	}
+
+	p := NewEventRegistrar()
+	return p.EventRegister(event)
 }
 
 func setupLogging() {

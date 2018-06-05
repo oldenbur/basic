@@ -48,7 +48,11 @@ type RegisterWorker interface {
 	Work(ticker WeeklyTicker)
 }
 
-type RegisterUrlPoster interface {
+type EventRegistrar interface {
+	EventRegister(event time.Time) error
+}
+
+type UrlRegistrar interface {
 	PostRegistration(reserveUrl string) error
 }
 
@@ -62,7 +66,11 @@ func NewRegisterWorker(config RegisterWorkerConfig) RegisterWorker {
 	return newRegisterWorker(config)
 }
 
-func NewRegisterUrlPoster() RegisterUrlPoster {
+func NewUrlRegistrar() UrlRegistrar {
+	return newRegisterWorker(NewConfigBuilder().Build())
+}
+
+func NewEventRegistrar() EventRegistrar {
 	return newRegisterWorker(NewConfigBuilder().Build())
 }
 
@@ -125,7 +133,8 @@ func (w *registerWorker) Close() error {
 func (w *registerWorker) register(eventTime time.Time) error {
 
 	seelog.Infof("register event: %v", eventTime)
-	reserveUrl, err := w.inferReserveUrl(eventTime)
+	//reserveUrl, err := w.inferReserveUrl(eventTime)
+	reserveUrl, err := w.findReserveUrl(eventTime)
 	if err != nil {
 		return err
 	}
@@ -139,6 +148,7 @@ func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 	var err error
 
 	schedUrl := fmt.Sprintf(ymcaSchedulesUrl, eventTime.Format(urlDateFormat))
+	seelog.Debugf("finding reservation on schedUrl: %s", schedUrl)
 	doc, err := goquery.NewDocument(schedUrl)
 	if err != nil {
 		return reserveUrl, err
@@ -213,4 +223,9 @@ func (w *registerWorker) PostRegistration(reserveUrl string) error {
 	}
 
 	return nil
+}
+
+
+func (w *registerWorker) EventRegister(eventTime time.Time) error {
+	return w.register(eventTime)
 }
