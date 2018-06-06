@@ -19,3 +19,13 @@ func TestInferTuesday(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "https://bouldervalley.consoria.com/2018-04-03/reserve/4578", url)
 }
+
+func TestIsEventNameMatch(t *testing.T) {
+	defer seelog.Flush()
+	s := newRegisterWorker(NewConfigBuilder().Build())
+
+	assert.True(t, s.isEventNameMatch("Adult Pick-Up Hockey"))
+	assert.True(t, s.isEventNameMatch("Adult Pick-Up Hockey (Novice)"))
+	assert.True(t, s.isEventNameMatch("Adult Pick-Up Hockey (Intermediate)"))
+	assert.False(t, s.isEventNameMatch("Adult Pick-Up Hockey Goalies"))
+}

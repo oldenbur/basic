@@ -18,7 +18,6 @@ const (
 	ymcaSchedulesUrl  = "https://bouldervalley.consoria.com/%s"
 	ymcaReserveUrl    = "https://bouldervalley.consoria.com/%s/reserve/%s"
 	urlDateFormat     = "2006-01-02"
-	eventTitle        = "Adult Pick-Up Hockey"
 	registrationName  = "Paul Oldenburg"
 	registrationEmail = "oldenbur@gmail.com"
 
@@ -167,7 +166,7 @@ func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 			}
 
 			title := s.Find("td > button").Text()
-			if title != eventTitle {
+			if !w.isEventNameMatch(title) {
 				return
 			}
 
@@ -187,6 +186,13 @@ func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 	}
 
 	return reserveUrl, err
+}
+
+func (w *registerWorker) isEventNameMatch(title string) bool {
+	titleLower := strings.ToLower(title)
+	return strings.Contains(titleLower, "adult") &&
+		strings.Contains(titleLower, "pick") &&
+		!strings.Contains(titleLower, "goal")
 }
 
 func (w *registerWorker) inferReserveUrl(eventTime time.Time) (string, error) {
