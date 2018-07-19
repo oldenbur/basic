@@ -96,8 +96,8 @@ func (s *weeklyTickerScheduler) ScheduleWeekly(sched string) (WeeklyTicker, erro
 
 			select {
 			case eventTime := <-eventChan:
-				seelog.Infof("firing event at %v", eventTime)
-				s.firer(ticker, eventTime)
+				seelog.Infof("firing event %v at %v", s.event, eventTime)
+				s.firer(ticker, s.event)
 				break
 
 			case <-s.closeChan:
