@@ -3,12 +3,14 @@ import argparse
 import os
 
 parser = argparse.ArgumentParser(description='Sync folders to Dropbox')
-parser.add_argument('dbxdir', default='/Photos', help='DropBox directory')
+parser.add_argument('dbxdir', default='/Photos/2000.album', nargs='?', help='DropBox directory')
+parser.add_argument('localdir', default='c:\\Users\\ahild\\Pictures\\paul\\2000.album', nargs='?',  
+                    help='File system directory')
 
 def main():
     args = parser.parse_args()
 
-    print "img_copy starting\n  dbxdir: %s\n" % (args.dbxdir)
+    print "img_copy starting\n  dbxdir: %s\n  localdir: %s\n\n" % (args.dbxdir, args.localdir)
 
     token = os.environ['DROPBOX_OAUTH_SECRET']
     if not token:
@@ -17,31 +19,44 @@ def main():
         return
 
     dbx = dropbox.Dropbox(token)
-    dbx_recurse_dir(dbx, args.dbxdir)
+    #dbx_recurse_dir(dbx, args.dbxdir)
+    fs_recurse_dir(args.localdir, dbx_dir_file_getter(dbx, args.dbxdir))
 
 
-def print_name(m): print m.name
+def printer(s): print s
+def noop(s): pass
+
+def dbx_dir_file_getter(dbx, dbx_dir):
+    return lambda dir: dbx_dir_files(dbx, dbx_dir + "/" + dir)
 
 
-def dbx_recurse_dir(dbx, dir_name, file_visitor=print_name):
+def fs_recurse_dir(dir, comp_files):
+
+    for dirpath, dirnames, filenames in os.walk(dir):
+        dbx_files = comp_files(dirpath.replace(dir, "").replace("\\", "/"))
+        for fs_file in filenames:
+            if fs_file in dbx_files:
+                print fs_file + " - FOUND"
+            else:
+                print fs_file + " - MISSING"
+
+
+def print_meta_name(m): print m.name
+
+def dbx_dir_files(dbx, dir):
    
-    print "dbx_recurse_dir(%s)" % dir_name
-    dbx_files = dbx.files_list_folder(dir_name)
+    files = {}
+    try:
+        dbx_files = dbx.files_list_folder(dir)
+    except dropbox.exceptions.ApiError as e:
+        print "WARNING: dropbox folder access '{0}' failed: {1}".format(dir, e.user_message_text)
+        return files
 
-    files = []
-    folders = []
     for m in dbx_files.entries:
         if type(m) == dropbox.files.FileMetadata:
-            files.append(m)
-        elif type(m) == dropbox.files.FolderMetadata:
-            folders.append(m)
+            files[m.name] = m
 
-    folders = sorted(folders, key=lambda m: m.name)
-    for f in folders:
-        dbx_recurse_dir(dbx, dir_name + "/" + f.name, file_visitor)
-
-    files = sorted(files, key=lambda m: m.name)
-    for f in files: file_visitor(f)
+    return files
 
 
 if __name__ == '__main__':
