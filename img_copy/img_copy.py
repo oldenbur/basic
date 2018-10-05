@@ -18,7 +18,7 @@ parser.add_argument('-d', '--dryrun', action="store_true",
 def main():
     args = parser.parse_args()
 
-    print "img_copy starting\n  dbxdir: %s\n  localdir: %s\n\n" % (args.dbxdir, args.localdir)
+    print "img_copy starting\n  dbxdir: %s\n  localdir: %s" % (args.dbxdir, args.localdir)
 
     token = os.environ['DROPBOX_OAUTH_SECRET']
     if not token:
@@ -34,7 +34,7 @@ def main():
         file_uploader = lambda fs_filepath, dbx_path: \
             dbx_upload(dbx, 
                 fs_filepath, 
-                args.dbxdir + dbx_path + "/" + os.path.basename(fs_filepath)
+                dbx_path + "/" + os.path.basename(fs_filepath)
             )
         dir_creator = lambda dir: dbx_mkdir(dbx, dir)
 
@@ -56,7 +56,7 @@ def fs_recurse_dir(dbx, fs_path, dbx_path, file_uploader, dir_creator):
 
     for dirpath, dirnames, filenames in os.walk(fs_path):
         
-        print "fs_recurse_dir:\n  fs_path: %s\n  dirpath: %s" % (fs_path, dirpath)
+        print "\nfs_recurse_dir:\n  fs_path: %s\n  dirpath: %s" % (fs_path, dirpath)
 
         dbx_pathdir = dbx_path + dirpath.replace(fs_path, "").replace("\\", "/")
         if not dbx_dir_exists(dbx, dbx_pathdir):
@@ -92,7 +92,7 @@ def dbx_upload(dbx, fs_filepath, dbx_filepath, overwrite=False):
     """Upload the file system file to the specified location in dropbox.
     Return the request response, or None in case of error.
     """
-    print '\ndbx_upload\n   fs_filepath %s\n  dbx_filepath %s' % (fs_filepath, dbx_filepath)
+    print '\ndbx_upload\n   fs_filepath: %s\n  dbx_filepath: %s' % (fs_filepath, dbx_filepath)
 
     mode = (dropbox.files.WriteMode.overwrite
             if overwrite
@@ -118,7 +118,7 @@ def dbx_mkdir(dbx, dbx_path):
 
     with stopwatch('dbx_mkdir complete\n  dbx_path: %s' % (dbx_path)):
         try:
-            return dbx.files.create_folder_v2(dbx_path)
+            return dbx.files_create_folder_v2(dbx_path)
         except dropbox.exceptions.ApiError as e:
             print "WARNING: dropbox create_folder failed: {0}".format(e)
             return None
@@ -129,10 +129,11 @@ def dbx_dir_exists(dbx, dbx_path):
     with stopwatch('dbx_dir_exists complete\n  dbx_path: %s' % (dbx_path)):
         try:
             meta = dbx.files_get_metadata(dbx_path)
-            print 'dbx_dir_exists meta: {0}'.format(meta)
+            # print 'dbx_dir_exists meta: {0}'.format(meta)
             return True
         except dropbox.exceptions.ApiError as e:
-            print "WARNING: dropbox files_get_metadata failed: {0}".format(e)
+            if not e.error.is_path() or not e.error.get_path().is_not_found():
+                print "WARNING: dropbox files_get_metadata failed: {0}".format(e)
             return False
 
 
