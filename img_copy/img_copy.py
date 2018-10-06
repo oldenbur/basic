@@ -6,6 +6,7 @@ import time
 import datetime
 import contextlib
 import sys
+import logging
 
 parser = argparse.ArgumentParser(description='Sync folders to Dropbox')
 parser.add_argument('dbxdir', default='/Photos/2020.album', nargs='?', 
@@ -15,15 +16,21 @@ parser.add_argument('localdir', default='c:\\Users\\ahild\\Pictures\\paul\\2020.
 parser.add_argument('-d', '--dryrun', action="store_true",
                     help='Don\'t upload anything')
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s', 
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
 def main():
     args = parser.parse_args()
 
-    print "img_copy starting\n  dbxdir: %s\n  localdir: %s" % (args.dbxdir, args.localdir)
+    logging.info("img_copy starting\n  dbxdir: %s\n  localdir: %s" % (args.dbxdir, args.localdir))
 
     token = os.environ['DROPBOX_OAUTH_SECRET']
     if not token:
-        print 'ERROR: please set DROPBOX_OAUTH_SECRET with an auth token \
-                (see https://www.dropbox.com/developers/apps)'
+        logging.error('please set DROPBOX_OAUTH_SECRET with an auth token \
+                (see https://www.dropbox.com/developers/apps)')
         return
 
     if args.dryrun:
@@ -44,19 +51,21 @@ def main():
         lambda dir: dir_creator(dir),
     )
 
+    logging.info("\n\nimg_copy complete")
+
 def dir_creator_print(dir):
-    print "dry run not mkdir\n  dbx_path: %s" % dir
+    logging.info("DRY RUN mkdir\n  dbx_path: %s" % dir)
     return None
 
 def file_uploader_print(fs_filepath, dbx_path):
-    print "dry run not uploading\n  fs_filepath: %s\n  dbx_path: %s" % (fs_filepath, dbx_path)
+    logging.info("DRY RUN uploading\n  fs_filepath: %s\n  dbx_path: %s" % (fs_filepath, dbx_path))
     return None
 
 def fs_recurse_dir(dbx, fs_path, dbx_path, file_uploader, dir_creator):
 
     for dirpath, dirnames, filenames in os.walk(fs_path):
         
-        print "\nfs_recurse_dir:\n  fs_path: %s\n  dirpath: %s" % (fs_path, dirpath)
+        logging.info("\n\n * * * * fs_recurse_dir:\n  fs_path: %s\n  dirpath: %s" % (fs_path, dirpath))
 
         dbx_pathdir = dbx_path + dirpath.replace(fs_path, "").replace("\\", "/")
         if not dbx_dir_exists(dbx, dbx_pathdir):
@@ -66,7 +75,7 @@ def fs_recurse_dir(dbx, fs_path, dbx_path, file_uploader, dir_creator):
         for fs_file in filenames:   
             if fs_file not in dbx_files:
                 fs_filepath = os.path.join(dirpath, fs_file)
-                # print "\n" + fs_filepath + " - MISSING - uploading to " + dbx_pathdir
+                logging.debug(fs_filepath + " - MISSING - uploading to " + dbx_pathdir)
                 sys.stdout.flush()
                 file_uploader(fs_filepath, dbx_pathdir)
             
@@ -78,7 +87,7 @@ def dbx_dir_files(dbx, dbx_path):
     try:
         dbx_files = dbx.files_list_folder(dbx_path)
     except dropbox.exceptions.ApiError as e:
-        print "WARNING: dropbox folder access '{0}' failed: {1}".format(dir, e)
+        logging.warning("dropbox folder access '{0}' failed: {1}".format(dir, e))
         return files
 
     for m in dbx_files.entries:
@@ -92,7 +101,8 @@ def dbx_upload(dbx, fs_filepath, dbx_filepath, overwrite=False):
     """Upload the file system file to the specified location in dropbox.
     Return the request response, or None in case of error.
     """
-    print '\ndbx_upload\n   fs_filepath: %s\n  dbx_filepath: %s' % (fs_filepath, dbx_filepath)
+    logging.info("")
+    logging.info('\n\ndbx_upload\n   fs_filepath: %s\n  dbx_filepath: %s' % (fs_filepath, dbx_filepath))
 
     mode = (dropbox.files.WriteMode.overwrite
             if overwrite
@@ -107,10 +117,10 @@ def dbx_upload(dbx, fs_filepath, dbx_filepath, overwrite=False):
                 client_modified=datetime.datetime(*time.gmtime(mtime)[:6]),
                 mute=True)
         except dropbox.exceptions.ApiError as e:
-            print "WARNING: dropbox upload failed: {0}".format(e)
+            logging.info("dropbox upload failed: {0}".format(e))
             return None
 
-    print 'dbx_upload as ' + res.name.encode('utf8')
+    logging.info('dbx_upload as ' + res.name.encode('utf8'))
     return res
 
 
@@ -120,7 +130,7 @@ def dbx_mkdir(dbx, dbx_path):
         try:
             return dbx.files_create_folder_v2(dbx_path)
         except dropbox.exceptions.ApiError as e:
-            print "WARNING: dropbox create_folder failed: {0}".format(e)
+            logging.warning("dropbox create_folder failed: {0}".format(e))
             return None
 
 
@@ -133,7 +143,7 @@ def dbx_dir_exists(dbx, dbx_path):
             return True
         except dropbox.exceptions.ApiError as e:
             if not e.error.is_path() or not e.error.get_path().is_not_found():
-                print "WARNING: dropbox files_get_metadata failed: {0}".format(e)
+                logging.warning("dropbox files_get_metadata failed: {0}".format(e))
             return False
 
 
@@ -145,7 +155,7 @@ def stopwatch(message):
         yield
     finally:
         t1 = time.time()
-        print('Total elapsed time for %s: %.3f' % (message, t1 - t0))
+        logging.info('Total elapsed time for %s: %.3f' % (message, t1 - t0))
 
 
 if __name__ == '__main__':
