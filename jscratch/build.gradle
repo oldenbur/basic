@@ -1,0 +1,23 @@
+apply plugin: 'java'
+
+// see: https://medium.com/@omarnyte/getting-started-with-tdd-in-gradle-for-java-8135504660af
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  testCompile 'junit:junit:4.12'
+}
+
+test {
+  testLogging {
+    events = ["passed", "failed", "skipped"]
+  }
+}
+
+jar {
+  manifest {
+    attributes 'Main-Class': 'net.pgoldenb.JScratch'
+  }
+}
