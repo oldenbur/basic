@@ -8,6 +8,10 @@ import java.util.function.Consumer;
 
 public class CentipedeTest {
 
+    static BoardLoc loc(int x, int y) {
+        return new BoardLoc(x, y);
+    }
+
     @Test
     public void constructorValid() {
         assertEquals(3, new Centipede(10, 3).length());
@@ -25,16 +29,40 @@ public class CentipedeTest {
 
     @Test
     public void toStringReturns() {
-        Centipede c = new Centipede(10, 3);
+        Centipede c = new Centipede(7, 3);
         System.out.println(c.toString());
     }
 
     @Test
     public void boardLocRequiresEquals() {
-        Set<boardLoc> m = new HashSet<>();
-        m.add(new boardLoc(1, 2));
-        assertTrue(m.contains(new boardLoc(1, 2)));
+        Set<BoardLoc> m = new HashSet<>();
+        m.add(new BoardLoc(1, 2));
+        assertTrue(m.contains(new BoardLoc(1, 2)));
     }
+
+    @Test
+    public void moveRight() {
+        Creature c = new Creature(Arrays.asList(loc(3, 3), loc(2, 3), loc(1, 3)), 7);
+        List<BoardLoc> cm = c.moveTo(loc(4, 3)).segments();
+        System.out.println(new Centipede(7, cm).toString());
+        assertEquals(3, cm.size());
+        assertEquals(loc(4,3), cm.get(0));
+        assertEquals(loc(3,3), cm.get(1));
+        assertEquals(loc(2,3), cm.get(2));
+    }
+
+    @Test
+    public void moveDown() {
+        Creature c = new Creature(Arrays.asList(loc(3, 3), loc(2, 3), loc(1, 3)), 7);
+        List<BoardLoc> cm = c.moveTo(loc(3, 4)).segments();
+        System.out.println(new Centipede(7, cm).toString());
+        assertEquals(3, cm.size());
+        assertEquals(loc(3,4), cm.get(0));
+        assertEquals(loc(3,3), cm.get(1));
+        assertEquals(loc(2,3), cm.get(2));
+    }
+
+
 
 }
 
@@ -47,15 +75,15 @@ public class CentipedeTest {
  */
 
 
-class boardLoc {
+class BoardLoc {
     int x, y;
 
-    public boardLoc(int x, int y) {
+    public BoardLoc(int x, int y) {
         this.x = x;
         this.y = y;
     }
 
-    public boolean isAdjacent(boardLoc otherLoc) {
+    public boolean isAdjacent(BoardLoc otherLoc) {
         int xDelta = Math.abs(x - otherLoc.x);
         int yDelta = Math.abs(y - otherLoc.y);
         return (xDelta == 1 && yDelta == 0) || (xDelta == 0 && yDelta == 1);
@@ -66,7 +94,7 @@ class boardLoc {
     }
 
     @Override public boolean equals(Object o) {
-        return (o != null && o instanceof boardLoc && ((boardLoc)o).x == x && ((boardLoc)o).y == y);
+        return (o != null && o instanceof BoardLoc && ((BoardLoc)o).x == x && ((BoardLoc)o).y == y);
     }
 
     @Override public int hashCode() {
@@ -77,16 +105,18 @@ class boardLoc {
     }
 }
 
-class creature {
+class Creature {
 
-    private List<boardLoc> segList;
-    private Set<boardLoc> segSet;
+    private List<BoardLoc> segList;
+    private Set<BoardLoc> segSet;
+    private int boardDim;
 
-    public creature(List<boardLoc> locs, int boardDim) {
-        segList = new LinkedList<>();
-        segSet = new HashSet<>(locs.size());
+    public Creature(List<BoardLoc> locs, int boardDim) {
+        this.segList = new LinkedList<>();
+        this.segSet = new HashSet<>(locs.size());
+        this.boardDim = boardDim;
 
-        for (boardLoc loc : locs) {
+        for (BoardLoc loc : locs) {
             validateCreatureSegmentAdjacency(loc);
             validateCreatureSegmentConflict(loc);
             validateCreatureSegmentOnBoard(loc, boardDim);
@@ -96,21 +126,21 @@ class creature {
         }
     }
 
-    private void validateCreatureSegmentOnBoard(boardLoc loc, int boardDim) {
+    private void validateCreatureSegmentOnBoard(BoardLoc loc, int boardDim) {
         if (loc.x < 0 || loc.x >= boardDim || loc.y < 0 || loc.y >= boardDim) {
             throw new IllegalArgumentException(String.format("segment %s not on board of dimension %d", loc, boardDim));
         }
     }
 
-    private void validateCreatureSegmentConflict(boardLoc loc) {
+    private void validateCreatureSegmentConflict(BoardLoc loc) {
         if (segSet.contains(loc)) {
             throw new IllegalArgumentException(String.format("initial segment conflict: %s", loc));
         }
     }
 
-    private void validateCreatureSegmentAdjacency(boardLoc loc) {
+    private void validateCreatureSegmentAdjacency(BoardLoc loc) {
 
-        boardLoc prevLoc = null;
+        BoardLoc prevLoc = null;
         if (segList.size() > 0) {
             prevLoc = segList.get(segList.size()-1);
         }
@@ -122,7 +152,7 @@ class creature {
         }
     }
 
-    public boolean containsLocation(boardLoc loc) {
+    public boolean containsLocation(BoardLoc loc) {
         return segSet.contains(loc);
     }
 
@@ -130,9 +160,30 @@ class creature {
         return segList.size();
     }
 
-    // TODO
-    public creature moveTo(boardLoc loc) {
-        return null;
+    public List<BoardLoc> segments() {
+        return Collections.unmodifiableList(segList);
+    }
+
+    public Creature moveTo(BoardLoc loc) {
+
+        BoardLoc head = segList.get(0);
+        if (!head.isAdjacent(loc)) {
+            throw new IllegalArgumentException(String.format("centipede with head at %s cannot move to %s", head, loc));
+        }
+
+        if (loc.x < 0 || loc.y < 0 || loc.x >= boardDim || loc.y >= boardDim) {
+            throw new IllegalArgumentException(String.format("centipede cannot move to %s outside of boardDim %d", loc, boardDim));
+        }
+
+        List<BoardLoc> newSegs;
+        if (segList.size() > 1) {
+            newSegs = segList.subList(0, segList.size() - 1);
+        } else {
+            newSegs = new ArrayList<>();
+        }
+        newSegs.add(0, loc);
+
+        return new Creature(newSegs, boardDim);
     }
 }
 
@@ -140,17 +191,17 @@ class Centipede {
 
 //    enum CentipedeBoardVal { EMPTY, CREATURE }
     private int boardDim;
-    private creature curCreature;
+    private Creature curCreature;
 
-    public Centipede(int boardDim, int centLen, List<boardLoc> initCreature) {
-        validateBoardDimAndCentLen(boardDim, centLen);
+    public Centipede(int boardDim, List<BoardLoc> initCreature) {
+        validateBoardDimAndCentLen(boardDim, initCreature.size());
 
         this.boardDim = boardDim;
-        this.curCreature = new creature(initCreature, boardDim);
+        this.curCreature = new Creature(initCreature, boardDim);
     }
 
     public Centipede(int boardDim, int centLen) {
-        this(boardDim, centLen, defaultInitCreature(boardDim, centLen));
+        this(boardDim, defaultInitCreature(boardDim, centLen));
     }
 
     private static void validateBoardDimAndCentLen(int boardDim, int centLen) {
@@ -162,14 +213,14 @@ class Centipede {
         }
     }
 
-    private static List<boardLoc> defaultInitCreature(int boardDim, int centLen) {
+    private static List<BoardLoc> defaultInitCreature(int boardDim, int centLen) {
 
         int ordX = (boardDim/2);
         int ordY = (boardDim/2);
 
-        List<boardLoc> cLoc = new ArrayList<>(centLen);
+        List<BoardLoc> cLoc = new ArrayList<>(centLen);
         for (int l=0; l < centLen; l++) {
-            cLoc.add(new boardLoc(ordX - l, ordY));
+            cLoc.add(new BoardLoc(ordX - l, ordY));
         }
 
         return cLoc;
@@ -199,13 +250,13 @@ class Centipede {
     private static void visitBoardCells(
             int boardDim,
             Consumer<Integer> rowBeginConsumer,
-            Consumer<boardLoc> cellConsumer,
+            Consumer<BoardLoc> cellConsumer,
             Consumer<Integer> rowEndConsumer
     ) {
         for (int y=0; y < boardDim; y++) {
             rowBeginConsumer.accept(y);
             for (int x=0; x < boardDim; x++) {
-                cellConsumer.accept(new boardLoc(x, y));
+                cellConsumer.accept(new BoardLoc(x, y));
             }
             rowEndConsumer.accept(y);
         }
