@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 public class ConcurrentListsTest {
 
     private static final int numVisitors = 100;
-    private static final int numApenders = 1000;
+    private static final int numAppenders = 1000;
     private static final int listSize = 100000;
 
     private final static CountDownLatch visitors = new CountDownLatch(numVisitors);
@@ -28,7 +28,7 @@ public class ConcurrentListsTest {
         for (int i = 0; i < numVisitors; i++) {
             tasks.add(() -> visitListItems(s -> {}, Duration.ZERO, tList));
         }
-        for (int i = 0; i < numApenders; i++) {
+        for (int i = 0; i < numAppenders; i++) {
             tasks.add(() -> appendListItems(prefix, Duration.ZERO, tList));
         }
 
