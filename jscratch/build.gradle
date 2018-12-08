@@ -11,6 +11,7 @@ dependencies {
   compile group: 'com.google.guava', name: 'guava', version: '23.5-jre'
   compile group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.11.1'
   compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.11.1'
+  implementation 'com.google.code.gson:gson:2.8.5'
 }
 
 test {
