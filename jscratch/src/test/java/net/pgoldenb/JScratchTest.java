@@ -4,16 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.junit.Test;
 
-import java.util.*;
-
 public class JScratchTest {
 
     @Test
     public void test1() {
         Node root = new Node(6);
         root = insert(root, 4);
+        root = insert(root, 12);
         root = insert(root, 8);
-        root = insert(root, 10);
         root = insert(root, 9);
         System.out.println(root.toString());
     }
@@ -31,7 +29,10 @@ public class JScratchTest {
         public String toString() { return gson.toJson(this); }
     }
 
+    static enum Path{LEFT, RIGHT};
+
     static Node insert(Node root, int val) {
+        System.out.format("insert(%d, %d)%n", root.val, val);
         if (val <= root.val) {
             if (root.left != null) {
                 insert(root.left, val);
@@ -65,11 +66,14 @@ public class JScratchTest {
         System.out.format("Node: %d  bf: %d%n", root.val, bf);
 
         if (bf < -1) {
+        } else if (bf > 1) {
             if (calcBf(root.right) > 1) {
                 System.out.println("Right-Left on " + root.toString());
                 Node piv = root.right;
                 root.right = piv.left;
+                root.right.ht -= 1;
                 piv.left = root.right.right;
+                root.right.right.ht += 1;
                 root.right.right = piv;
             }
             System.out.println("Right-Right on " + root.toString());
@@ -77,11 +81,12 @@ public class JScratchTest {
             root.right = root.right.right;
             piv.right = piv.left;
             piv.left = root.left;
+            root.left = piv;
+            root.left.ht -= 1;
             int tmp = piv.val;
             piv.val = root.val;
             root.val = tmp;
-        } else if (bf > 1) {
-
+            root.ht -= 1;
         }
         return root;
     }
