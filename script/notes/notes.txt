@@ -126,52 +126,10 @@ GO COMPILE |   $ sudo cp -R BUILD/include/* /usr/local/include
 GO COMPILE |   $ sudo cp -R BUILD/lib/* /usr/local/lib
 GO PROFILE | https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs
 
-SIEM INSTALL | Windows installers for SIEM components on "Engineering" drive: \\10.128.64.84\Releases\Software\==01-Latest
-SIEM INSTALL | Copy LogrhythmInstallWizard, LogRhythmUpgradeAssistant, DatabaseScripts/LRDBScripts and LRLoggen to Desktop
-SIEM INSTALL |  1. Run upgrade assistant setup.exe as Administrator
-SIEM INSTALL |  2. Run install wizard LogRhythmInstallWizard.exe as Administrator
-SIEM INSTALL |  3. Upgrade the EMDB SQLServer instance, run scripts in: ==01-Latest/{release}/DatabaseScripts/LRDBScripts:
-SIEM INSTALL |     > .\BuildEMDB.bat logrhythm!1
-SIEM INSTALL |     > .\Build_CMDB.bat logrhythm!1
-SIEM INSTALL |  4. Install LRLoggen - log generator
-SIEM INSTALL | 98. Run Deployment tool: http://usbo1part01:8081/artifactory/webapp/#/artifacts/browse/tree/General/INSTALLERS/lr-deployment/1.0.0/win/LogRhythmDeploymentTool-1.0.0+46.msi
-SIEM INSTALL | 99. Set up perf counters util: http://github.schq.secious.com/Logrhythm/PerformanceTesting/wiki/netrics.exe
-
 SIEM UNINSTALL | 1. Uninstall all LogRhythm SIEM components
 SIEM UNINSTALL | 2. Remove C:\LogRhythm and C:\Program Files\LogRhythm
 SIEM UNINSTALL | 3. In SQLServer Mgmt, run: \\usbo1pclusfile\Releases\Software==01-Latest\7.2.0\DatabaseScripts\SQLScripts\LR7.2.0-Drop All.sql
 
-SIEM | Allconf setup:
-SIEM |   1. Carpenter Config - Emdb host: point at PM/XM with EMDB DB
-SIEM |   2. Cluster Node Config - Public IP: set to public facing IP of DX
-SIEM |   3. Elasticsearch Server Config - cluster_name: set to something unique
-SIEM | Set up mediator:
-SIEM |   1. Run C:\Program Files\LogRhythm\LogRhythm Mediator Server\lrconfig.exe
-SIEM |   2. Start mediator service
-SIEM | To ensure that a PM is pointing at the right DPX, in SQLServer:
-SIEM |   USE LogRhythmEMDB;
-SIEM |   SELECT * FROM NGPCluster;
-SIEM |   SELECT * FROM NGPNode;
-SIEM | LogRhythm Console: 
-SIEM |   1. Login: logrhythmadmin/logrhythm!1
-SIEM |   2. Deployment Manager - Entities: add Primary Site host for DPX
-SIEM |   3. Deployment Manager - Data Processors: add DP with DPX entity, check heartbeat
-SIEM | Start System Monitor (to collect info from local box - necessary for loggen):
-SIEM |   1. Start LogRhythm System Monitor Service in Services
-SIEM |   2. Observe LogRhythm/LogRhythm System Monitor/logs/scsm.log
-SIEM |   3. On console Deployment Manager -> System Monitors tab, make sure heartbeat is current
-SIEM |   4. Double-click the System Monitor in the table, in Syslog and Flow Setting:
-SIEM |      a. ensure Enable Syslog Server is checked
-SIEM |      b. enter hosts into Syslog Relay Hosts
-SIEM |   5. In console Deployment Monitor -> Log Sources tab, make sure log sources appear with up-to-date Last Log Message
-SIEM | Log Generator:
-SIEM |   1. Windows Start -> Log Generator
-SIEM |   2. In the Syslog tab, set:
-SIEM |      a. Source IP Address to local host 
-SIEM |      b. Destination to target host
-SIEM |   3. In the Global Options tab:
-SIEM |      a. Min Batch / Max Batch to logs/sec
-SIEM |      b. Stop Count (0 means run forever)
 SIEM | If logs not flowing, check perf counters for LogMart. If full, in SQLServer TRUNCATE TABLE LoadTable 
 
 SIEM IP | To reconfigure a SIEM installation with a new IP address:
