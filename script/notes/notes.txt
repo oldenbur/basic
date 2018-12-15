@@ -1,41 +1,24 @@
 
-JAWS CONFIG | run [jaws-src-base]/src/ConfigTool/run.sh and use default JAWS location of /opt/JBoss
-JAWS JBOSS | To create a new instance of JAWS:
-JAWS JBOSS |   1. check out a new SVN project
-JAWS JBOSS |   2. deploy a new instance of jboss-4.0.1sp1 in /opt/JBoss-[name]
-JAWS JBOSS |   3. edit [jaws-proj]/jboss.ant.properties with the jboss location
-JAWS JBOSS |   4. edit [jaws-proj]/src/server-new/deploy/conf/jaws-database.xml with the correct database information 
-JAWS JBOSS |   5. run the ant targets build, create-dev-scripts (src/sql/build.xml), configure-jboss and deploy-ear
-JAWS JBOSS |   6. set up a separate mysql database for the new instance by modifying rebuildJaws
-JAWS JBOSS |   7. run the config tool (src/ConfigTool/run.sh) and set up the database and port information
-JAWS JBOSS |   8. create a new eclipse server profile, copying an existing one and modifying it with the new port information
-JAWS JBOSS |   9. start the server and make sure it starts
-JAWS JBOSS |  10. modify MiniWebStart with the new port number for the client
-JAWS JBOSS |  11. to run multiple clients, try one of three things:
-JAWS JBOSS |      a. change the client.jawsServerId to some other 8 character id 
-JAWS JBOSS |      b. try to use the jaws/jaws.jnlp?crosstalk-port=none suffix
-JAWS JBOSS |      c. use the [jaws-proj]/tools/launch-client.html utility
-JAWS CLI UTIL | run jaws-trunk/src/commandline/runlocal.pl and use help([func_name]) to directly interact with JAWS EJB layer
-JAWS TAHINI | edit dialog .xml, then run TahiniPreview to view changes
-DEBUG CONFIGTOOL | debug main class: com.termalabs.configui.Main
-DEBUG CONFIGTOOL |   1.  add program argument: /opt/JBoss
-DEBUG CONFIGTOOL |   2.  change working directory: ${workspace_loc:jaws-4.2}/src/ConfigTool
-DEBUG CONFIGTOOL |   3.  copy [jaws-base]/src/ConfigTool/log4j.properties to [jaws-base]/src/ConfigTool/log/
-DEBUG CONFIGTOOL |   4.  copy [jaws-base]/build/ConfigTool/classes/com/termalabs/configui/settings/loggers.txt to
-DEBUG CONFIGTOOL |         [jaws-base]/eclipse/com/termalabs/configui/settings/
-DEBUG JAWS CLIENT | to avoid the mouse becoming useless at a breakpoint, debug swing apps with VM Argument: -Dsun.awt.disablegrab=true
+LOGIN | Oracle - user: oldenbur@gmail.com  password: [Bevyear]
+LOGIN | MassMutual RetireSmart user: oldenbur  password: [Bevyear]
+LOGIN | AppleID: oldenbur@gmail.com  password: [ronde]
+LOGIN | State Farm: oldenbur  password: [super_secret!]
+LOGIN | Wells Fargo: oldenbur76  password: [super_secret!]2
+LOGIN | Skype: oldenbur@gmail.com  password: [super_secret!]1
+LOGIN | Jenkins Host - ssh root@jenkins2  (password: centos)
+LOGIN | Jenkins NGLM_DEV Host - ssh root@10.128.80.65
+LOGIN | Jenkins DX_Docker - ssh logrhythm@10.3.0.183
+LOGIN | Engineering drive host: usbo1pclusfile.schq.secious.com
+LOGIN | Concur user: paul.oldenburg@logrhythm.com  password: [super_secret!]
 
-JBOSS KILL UTIL | command jbosskill
-JAVA UTIL | use tool jar_class
-JAVA UTIL | jstack [pid]
-UTIL EPOCH | epoch conversion tool: ep
-UTIL DATABASE | JAWS database version: db_ver [database (jaws)]
+HOSTS | Solutions Testbench - IP: 10.7.7.82  user: logrhythm
+HOSTS | VMSphere dev - IP: 10.3.0.61  user: paul
+HOSTS | VMSphere dev2 - IP: 10.3.0.54  user: paul
+HOSTS | Tom's Dev3 appliance - IP: 10.1.10.172  user: paul.oldenburg
+HOSTS | Paul's Dev appliance - IP: 10.3.10.240  user: paul
 
-AUTOSYS | In ACE command window autorep command:
-AUTOSYS |   > autorep -J {job_name} -d -r -{run_num}
-AUTOSYS |   > autorep -M {machine_name} -d -q
-AUTOSYS |   > sendevent -J {job_name} -E EVENT
-AUTOSYS |   > chk_auto_up
+JENKINS | NGLM_DEV host: 10.128.80.65
+JENKINS | new Jenkins2: http://10.3.0.224:8080/
 
 ORACLE PERL | Installing DBD::Oracle:
 ORACLE PERL |   $ echo $ORACLE_HOME
@@ -46,11 +29,322 @@ ORACLE PERL |   cpan> install DBD::Oracle
 ORACLE PERL |   $ perl -e 'use DBD::Oracle; print $DBD::Oracle::VERSION,"\n";'
 ORACLE PERL |   $ ldconfig -vn $ORACLE_HOME/lib
 
-JSFIDDLE | jquery attribute selectors: http://jsfiddle.net/DPu9S/
+DEV IMAGE | $ sudo yum -y install mercurial
+
+PROTOBUF INSTALL | When protoc is required to generate protobuf files:
+PROTOBUF INSTALL |   1. cd ~/LogRhythm/Protobuffers
+PROTOBUF INSTALL |   2. (on CentOS7) sudo yum -y install gcc-c++-4.8.3-9.el7.x86_64
+PROTOBUF INSTALL |   3. sh scripts/compileThirdParty.sh  # may have to change -Ofast to -O2
+PROTOBUF INSTALL |   4. export PATH=$PATH:/home/paul/LogRhythm/Protobuffers/thirdParty/dist/protobuf/bin/protoc
+
+PROTOBUF GO | To generate the Go protobuf files:
+PROTOBUF GO |   1. cd ~/LogRhythm/Protobuffers
+PROTOBUF GO |   2. sh scripts/buildProtoFilesGo.sh
+PROTOBUF GO |   3. change gogo imports:
+PROTOBUF GO |      $ find * -name '*.go' | xargs sed -i'' -e 's|code.google.com/p/gogoprotobuf/proto|github.schq.secious.com/Logrhythm/Godeps/_workspace/src/github.com/gogo/protobuf/proto|'
 
 LINUX | $ netstat -tulpn  # list who is listening on what ports
 LINUX FIREWALL | (as root): $ system-config-firewall
+LINUX FIREWALL | To open port 9200 on centos7: sudo firewall-cmd --add-port 9200/tcp
+LINUX FILEHANDLE | Check current limit: $ cat /proc/sys/fs/file-max
+LINUX FILEHANDLE | To increase: 
+LINUX FILEHANDLE |   1. edit /etc/sysctl.conf to add: fs.file-max = 1000000
+LINUX FILEHANDLE |   2. sudo sysctl -p
+LINUX TUNNEL | To tunnel a port to localhost (e.g. for grafana on VPN): ssh -L 9000:10.1.10.172:8111 paul.oldenburg@10.1.10.172
+LINUX SWAP | Reduce tendency to swap: sudo sysctl -w vm.swappiness=0  # default: 30
+LINUX JOURNALCTL | https://www.loggly.com/ultimate-guide/using-journalctl/
+LINUX MOUNT | To mount the engineering drive: (http://www.serverlab.ca/tutorials/linux/storage-file-systems-linux/mounting-smb-shares-centos-7/)
+LINUX MOUNT |   1. sudo yum install -y cifs-utils
+LINUX MOUNT |   2. sudo useradd -u 5000 eng_drive
+LINUX MOUNT |   3. sudo groupadd -g 6000 eng_drivers
+LINUX MOUNT |   4. sudo usermod -G eng_drivers -a logrhythm
+LINUX MOUNT |   5. sudo mount.cifs --verbose \\\\usbo1pclusfile.schq.secious.com\\Engineering /eng_drive -o user='Paul.Oldenburg',pass='******',uid=5000,gid=6000
+LINUX MOUNT TMP | To remount /tmp with exec: sudo mount -o remount,exec /tmp
+LINUX TIME | To reset date server: sudo ntpdate -u usbo1pdc01.schq.secious.com
+LINUX HARDENED ISO | \\usbo1pclusfile.schq.secious.com\Engineering\Releases\Software\==07-GA\LogRhythm 7.3.2.GA\Components\Linux Data Indexer ISO
+LINUX VM INTERNET | See https://geekflare.com/no-internet-connection-from-vmware-with-centos-7/
+LINUX VM INTERNET | $ dhclient -v
+LINUX GO COMPILE | Cross-compile: https://github.schq.secious.com/Jacob-Delgado/CrossCompileGoForWindowsOnLinux
+LINUX RPM | List rpm contents: rpm -qlp [rpm_file] [--scripts]
+LINUX RPM | View spec file for rpm: rpmrebuild --package --notest-install -e [rpm_file]
+LINUX SCP | https://unix.stackexchange.com/questions/182483/scp-without-password-prompt-using-different-username
+LINUX SCP |   $ ssh-keygen -t rsa -b 4096 -C "Paul.Oldenburg@logrhythm.com"
+LINUX SCP |   $ cat ~/.ssh/id_rsa.pub | ssh paul@10.3.10.240 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 700 .ssh && chmod 600 .ssh/authorized_keys"
+LINUX LOAD | for I in $(seq 40 49); do IP="10.151.1.$I"; echo $IP; ssh -tq logrhythm@$IP 'top -bn1 | head -1'; done    
+LINUX PS1 | export PS1='[\u@\h \W]\$ '
+LINUX PS1 | export PS1='[\u@\h \W]\$ '
+LINUX NETWORK | sudo ethtool -S [interface]
+LINUX NETWORK | sudo ip -s link
+
+LINUX ES | If errors appear in the elasticsearch log about memlock or file handles, add to /etc/security/limits.conf:
+LINUX ES | elasticsearch soft memlock unlimited
+LINUX ES | elasticsearch hard memlock unlimited
+LINUX ES | elasticsearch  -  nofile  65536
+
+CENTOS NETWORK | http://www.krizna.com/centos/setup-network-centos-7/
 
 VIM PYTHON | To set tabs to two spaces and not using tabs:
-VIM PYTHON |   :set softtabstop=2 shiftwidth=2 expandtab
+VIM PYTHON |   :set softtabstop=4 shiftwidth=4 expandtab
+
+VIM GO | See https://github.com/fatih/vim-go
+VIM GO |   1. Install Pathogen: 
+VIM GO |     a. $ git clone https://github.com/fatih/vim-go.git ~/.vim/bundle/vim-go
+VIM GO |     b. $ mkdir -p ~/.vim/autoload ~/.vim/bundle && curl -LSso ~/.vim/autoload/pathogen.vim https://tpo.pe/pathogen.vim
+VIM GO |     c. add to .vimrc: execute pathogen#infect()
+
+GIT | ssh keys:
+GIT |   1. On dev machine, run ssh-keygen tool and copy key from ~/.ssh/id_rsa.pub
+GIT |   2. In github account settings SSH keys area, Add SSH key and paste key from step 1
+GIT API OAUTH | lrgit OAuth token: 4228e75c523491886f1da30c97a8b793160c50fc
+GIT BRANCH | To create a DX branch, run NGLM/release/createBranchFromBranchDXInfoRepos.sh
+GIT SQUASH | Chris's strategy:
+GIT SQUASH |   $ git log --pretty=oneline  # count the number of commits (n) you want to squash starting at HEAD
+GIT SQUASH |   $ git rebase -i HEAD~n      # choose to pick or squash each commit (everything except for oldest)
+GIT SQUASH |   $ git log --pretty=oneline  # make sure squash worked
+GIT SQUASH |   $ git push -f {branch}      # propagate squash
+
+MAC TERMINAL | To set up word forward/backward keys: http://superuser.com/questions/124336/mac-os-x-keyboard-shortcuts-for-terminal
+
+GO | Run a single package test case with output enabled:
+GO | $ go test -test.v github.schq.secious.com/Logrhythm/Vitals/c -run {test_name}
+GO GODOC | To run a godoc web app for local source: godoc -http=:6060
+GO PLAYGROUND | timestamp collision test - https://play.golang.org/p/3YSBNHrShd
+GO PLAYGROUND | timed wait loop - https://play.golang.org/p/gTewZMZUB6
+GO PLAYGROUND | time format - https://play.golang.org/p/MpbEh9zKHZ
+GO PLAYGROUND | function timeout - https://play.golang.org/p/B4S0c-Hd62
+GO PLAYGROUND | escaping with \\ - https://play.golang.org/p/UBkSI5sy5C
+GO PLAYGROUND | worker pool - https://play.golang.org/p/P6_pdQa4_i
+GO PLAYGROUND | cancellable - https://play.golang.org/p/GV2gcK1qgN
+GO PLAYGROUND | doners - https://play.golang.org/p/7guBy6G-Y9
+GO PLAYGROUND | gob - https://play.golang.org/p/evYHA13Ldi
+GO PLAYGROUND | panics - https://play.golang.org/p/zRE9xD7YDs
+GO COMPILE | To cross-compile a windows service on linux (https://github.com/golang/go/wiki/WindowsCrossCompiling):
+GO COMPILE |   $ sudo yum install -y mingw64\* # or at least the dev tools
+GO COMPILE | Set up zeromq: (see https://github.schq.secious.com/gist/Jacob-Delgado/f2803eb273162ac1eb18) 
+GO COMPILE |   $ scp root@10.128.80.65:BUILD.zip .; unzip BUILD.zip
+GO COMPILE |   $ sudo cp -R BUILD/include/* /usr/local/include
+GO COMPILE |   $ sudo cp -R BUILD/lib/* /usr/local/lib
+GO PROFILE | https://software.intel.com/en-us/blogs/2014/05/10/debugging-performance-issues-in-go-programs
+
+SIEM INSTALL | Windows installers for SIEM components on "Engineering" drive: \\10.128.64.84\Releases\Software\==01-Latest
+SIEM INSTALL | Copy LogrhythmInstallWizard, LogRhythmUpgradeAssistant, DatabaseScripts/LRDBScripts and LRLoggen to Desktop
+SIEM INSTALL |  1. Run upgrade assistant setup.exe as Administrator
+SIEM INSTALL |  2. Run install wizard LogRhythmInstallWizard.exe as Administrator
+SIEM INSTALL |  3. Upgrade the EMDB SQLServer instance, run scripts in: ==01-Latest/{release}/DatabaseScripts/LRDBScripts:
+SIEM INSTALL |     > .\BuildEMDB.bat logrhythm!1
+SIEM INSTALL |     > .\Build_CMDB.bat logrhythm!1
+SIEM INSTALL |  4. Install LRLoggen - log generator
+SIEM INSTALL | 98. Run Deployment tool: http://usbo1part01:8081/artifactory/webapp/#/artifacts/browse/tree/General/INSTALLERS/lr-deployment/1.0.0/win/LogRhythmDeploymentTool-1.0.0+46.msi
+SIEM INSTALL | 99. Set up perf counters util: http://github.schq.secious.com/Logrhythm/PerformanceTesting/wiki/netrics.exe
+
+SIEM UNINSTALL | 1. Uninstall all LogRhythm SIEM components
+SIEM UNINSTALL | 2. Remove C:\LogRhythm and C:\Program Files\LogRhythm
+SIEM UNINSTALL | 3. In SQLServer Mgmt, run: \\usbo1pclusfile\Releases\Software==01-Latest\7.2.0\DatabaseScripts\SQLScripts\LR7.2.0-Drop All.sql
+
+SIEM | Allconf setup:
+SIEM |   1. Carpenter Config - Emdb host: point at PM/XM with EMDB DB
+SIEM |   2. Cluster Node Config - Public IP: set to public facing IP of DX
+SIEM |   3. Elasticsearch Server Config - cluster_name: set to something unique
+SIEM | Set up mediator:
+SIEM |   1. Run C:\Program Files\LogRhythm\LogRhythm Mediator Server\lrconfig.exe
+SIEM |   2. Start mediator service
+SIEM | To ensure that a PM is pointing at the right DPX, in SQLServer:
+SIEM |   USE LogRhythmEMDB;
+SIEM |   SELECT * FROM NGPCluster;
+SIEM |   SELECT * FROM NGPNode;
+SIEM | LogRhythm Console: 
+SIEM |   1. Login: logrhythmadmin/logrhythm!1
+SIEM |   2. Deployment Manager - Entities: add Primary Site host for DPX
+SIEM |   3. Deployment Manager - Data Processors: add DP with DPX entity, check heartbeat
+SIEM | Start System Monitor (to collect info from local box - necessary for loggen):
+SIEM |   1. Start LogRhythm System Monitor Service in Services
+SIEM |   2. Observe LogRhythm/LogRhythm System Monitor/logs/scsm.log
+SIEM |   3. On console Deployment Manager -> System Monitors tab, make sure heartbeat is current
+SIEM |   4. Double-click the System Monitor in the table, in Syslog and Flow Setting:
+SIEM |      a. ensure Enable Syslog Server is checked
+SIEM |      b. enter hosts into Syslog Relay Hosts
+SIEM |   5. In console Deployment Monitor -> Log Sources tab, make sure log sources appear with up-to-date Last Log Message
+SIEM | Log Generator:
+SIEM |   1. Windows Start -> Log Generator
+SIEM |   2. In the Syslog tab, set:
+SIEM |      a. Source IP Address to local host 
+SIEM |      b. Destination to target host
+SIEM |   3. In the Global Options tab:
+SIEM |      a. Min Batch / Max Batch to logs/sec
+SIEM |      b. Stop Count (0 means run forever)
+SIEM | If logs not flowing, check perf counters for LogMart. If full, in SQLServer TRUNCATE TABLE LoadTable 
+
+SIEM IP | To reconfigure a SIEM installation with a new IP address:
+SIEM IP |   1. Copy & unpack engineering drive Reconfigure.zip
+SIEM IP |   2. In admin powershell, run:
+SIEM IP |      > set-executionpolicy remotesigned
+SIEM IP |      > ./Reconfigure.ps
+
+SIEM EMDB | To clear out the EMDB (Engineering Releases): DatabaseScripts/SQLScripts/CompleteDataReset.sql
+SIEM EMDB | To take back SQL Server space:
+SIEM EMDB |   a. Run CompleteDataReset
+SIEM EMDB |   b. In management studio, delete CMDB, Alarms, Events and LogMart
+SIEM EMDB |   c. Re-run Build_CMDB.bat and BuildEMDB.bat
+
+SIEM EMDB LISTS | https://github.schq.secious.com/Logrhythm/NGLM/wiki/LogRhythm-List-Serialization
+
+SIEM TUNING | In mediator conf directory, add to bottom of scmedsvr.ini:
+SIEM TUNING |   [OPTIONAL]
+SIEM TUNING |   RMDispatchBatchSize=100000
+SIEM TUNING |   RMHWM=1000000
+SIEM TUNING | In DP Advanced settings:
+SIEM TUNING |   LogProcessingThreads: 10
+SIEM TUNING |   MaxServiceMemory: 10240
+SIEM TUNING |   DataQueueThreadCount: 10
+SIEM TUNING | In SysMon Advanced Properties:
+SIEM TUNING |   CycleTime: 1
+
+SIEM DB UPGRADE | If sqlserver version is < 10.50.6000, then:
+SIEM DB UPGRADE | google "download sqlserver 2008 r2 sp2", install x64 patch
+
+SIEM TRAINING | https://logrhythm.app.box.com/s/1o485izm8iwm3lvolqqvml7jq662b9n2
+
+SQLSERVER | 2008R2 SP3 (version 10.50.6000): https://www.microsoft.com/en-us/download/details.aspx?id=44271
+
+DX TESTING | To run a test instance of a service:
+DX TESTING | sudo su -s /bin/bash - persistent -c "export DXCLUSTERID="ex6Q1m2N"; cd /usr/local/logrhythm/gomaintain; ./GoMaintain start"
+
+DX LINUX INSTALLER | https://github.schq.secious.com/gist/Tom-Artale/922de01845d9e96781d4c861ccc1da58
+DX LINUX INSTALLER | $ sudo env "PATH=$PATH" ...
+
+LRHASHGEN | http://usbo1part01:8081/artifactory/webapp/#/artifacts/browse/tree/General/vendor-2/lrhashgen/0.1
+
+ECLIPSE STYLE | To reduce tab size, switch to GTK theme and add swt-tab-height: 22px; under .MPartStack to {ECLIPSE_INSTALL}/../e4_default_gtk.css
+
+PYTHON SETUP | To set up the NGLM_Integration_Test python environment:
+PYTHON SETUP |   1. $ sudo yum install -y python-devel.x86_64
+PYTHON SETUP |   2. $ sudo yum install -y epel-release
+PYTHON SETUP |   3. $ sudo yum install -y python-pip
+PYTHON SETUP |   4. $ sudo pip install six
+PYTHON SETUP |   5. $ sudo pip install protobuf
+PYTHON SETUP |   6. $ sudo pip install zmq
+PYTHON SETUP |   7. $ sudo pip install xmlrunner
+
+VNC | https://www.howtoforge.com/vnc-server-installation-on-centos-7
+VNC | To enable copy-and-paste, on the server run: 
+VNC |   1. $ vncconfig -nowin &  # see: https://groups.google.com/forum/#!topic/tigervnc-users/TikOA7hCZEw
+VNC |   2. add command to ~/.vnc/xstartup
+VNC | Mac laptop: 1680 x 1050 (16:10)
+VNC | Work monitor: 1920 x 1080 (16:9)
+
+MAVEN | $ mvn -U [-DskipTests] clean install 
+
+CONFIG PROTO | To add a config for a new service: http://github.schq.secious.com/Logrhythm/NGLM/wiki/Adding-a-new-Go-service-config
+
+IPTABLES | Disable the firewall: sudo iptables -P INPUT ACCEPT; sudo iptables -P OUTPUT ACCEPT; sudo iptables -P FORWARD ACCEPT; sudo iptables -F
+IPTABLES | From: https://help.ubuntu.com/community/IptablesHowTo
+
+JAVA JMC PROFILING | service bat: "C:\Program Files\Java\jdk_1.8.0_45\bin\java" -Dlogback.configurationFile=columbo-logback-persistent.xml -Dservice.name=columbo -jar Columbo.jar
+JAVA JMC PROFILING | To profile:
+JAVA JMC PROFILING |   -Dcom.sun.management.jmxremote
+JAVA JMC PROFILING |   -Dcom.sun.management.jmxremote.port=4000 
+JAVA JMC PROFILING |   -Dcom.sun.management.jmxremote.authenticate=false
+JAVA JMC PROFILING |   -XX:+UnlockCommercialFeatures
+JAVA JMC PROFILING |   -XX:+FlightRecorder
+
+INFLUXDB | curl -G 'http://localhost:8087/query' --data-urlencode "q=SHOW DATABASES"
+INFLUXDB | curl -G 'http://localhost:8087/query?pretty=true' --data-urlencode "db=stats" --data-urlencode "q=SHOW SERIES" | jq '.results[].series[].name' | less
+INFLUXDB | curl -G 'http://localhost:8087/query?pretty=true' --data-urlencode "db=stats" --data-urlencode 'q=SELECT * FROM "Gigawatt.CurrentMsgCount" WHERE time > now() - 5m ORDER BY time LIMIT 20'
+INFLUXDB | curl -G 'http://localhost:8087/query?pretty=true' --data-urlencode 'q=SHOW RETENTION POLICIES ON "stats"'
+INFLUXDB | curl -G 'http://localhost:8087/query?pretty=true' --data-urlencode 'q=ALTER RETENTION POLICY "default" ON "stats" DURATION INF'
+
+INFLUXDB | C:\Program Files\LogRhythm\LogRhythm Metrics\LogRhythm Metrics Database\dependencies\influxdb>.\influx.exe -port 8076
+INFLUXDB | To remove old stats:
+INFLUXDB | $ influx -host <PM_IP> -port 8076 --execute 'show measurements' --database=telegraf | grep "^transporter" | xargs -I{} influx --database=telegraf -host <PM_IP> -port 8076 --execute 'drop measurement "{}"'
+
+WINDOWS TOOLS | Viewing process connections to ports: TCPView
+WINDOWS TOOLS | Process Explorer
+WINDOWS TOOLS | Run as administrator: netstat -abo
+WINDOWS ALTERNATE | Remove environment variables: DXINSTALL, DXDATA, DXCONFIG
+WINDOWS ALTERNATE | https://github.schq.secious.com/Logrhythm/NGLM/wiki/Data-Indexer-Windows
+WINDOWS LRII | Enable powershell remoting: powershell.exe -inputformat none enable-psremoting -force
+WINDOWS HASH | https://www.nirsoft.net/utils/hash_my_files.html
+WINDOWS LOGIN | HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters\DisablePasswordChange
+
+TSHARK | List interfaces (for -i): sudo tshark -D
+TSHARK | Stream port-filtered packet headers: sudo tshark -i 8 -R 'tcp.port eq 8111 or tcp.port eq 8110'
+TSHARK | Send filtered decoded packets to stdout: sudo tshark -i 8 -w - -2 -d 'tcp.port==8111,http'
+TSHARK | Packet capture to file (as root): tshark -i 8 -w tshark.out
+
+JAVA SERVICE LOGGING | To turn on logging for a specific package/class, insert the folling in logback before <root>:
+JAVA SERVICE LOGGING |   <logger level="TRACE" name="com.logrhythm.columbo.Deputy" additivity="false">
+JAVA SERVICE LOGGING |       <appender-ref ref="FILE" />
+JAVA SERVICE LOGGING |   </logger>
+
+JAVA MAVEN | To build without running tests: $ mvn -DskipTests clean install
+
+CYGWIN | Setup modules: vim, curl, openssh, python, watch, jq
+
+VBOX | Some sample commands >>>>
+VBOX |   vboxmanage list runningvms
+VBOX |   vboxmanage showvminfo CentOS71Cluster1
+VBOX |   vboxmanage snapshot CentOS71Cluster1 list
+VBOX |   vboxmanage shutdown CentOS71Cluster1
+VBOX |   VBoxManage snapshot CentOS71Cluster1 restore CleanWithLogRhythmUser
+VBOX |   VBoxManage startvm CentOS71Cluster1 --type headless 
+VBOX ISO | https://github.schq.secious.com/gist/chris-rice/7fb1909db8004e353c59aeaf4f03e309
+
+VMWARE CENTOS | edit /Library/Preferences/VMware Fusion/vmnet8/dhcpd.conf
+
+VSPHERE | Thick client: http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe
+VSPHERE | Server host: usbo1citvcs01
+VSPHERE | Help: https://helpme.logrhythm.com/FAQTree.jsp#68
+
+ELASTICSEARCH JMX | To set up elasticsearch for profiling:
+ELASTICSEARCH JMX |   1. Install and start elasticsearch with a recent jdk, modify es.sh:
+ELASTICSEARCH JMX |      export ES_JAVA_OPTS="-Djna.tmpdir=${tmp_dir} -Djava.io.tmpdir=${tmp_dir}"
+ELASTICSEARCH JMX |      export ES_JAVA_OPTS="$ES_JAVA_OPTS -Dcom.sun.management.jmxremote.port=9876"
+ELASTICSEARCH JMX |      export ES_JAVA_OPTS="$ES_JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false"
+ELASTICSEARCH JMX |      export ES_JAVA_OPTS="$ES_JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
+ELASTICSEARCH JMX |      #export ES_JAVA_OPTS="$ES_JAVA_OPTS -Djava.rmi.server.hostname=ec2-184-72-218-180.compute-1.amazonaws.com"
+ELASTICSEARCH TEMPLATES | for T in $(find /etc/elasticsearch/templates -type f); do TT=$(echo $T | sed -e's/.\+\/\(.\+\).json/\1/'); C="curl -s localhost:9200/_template/$TT?pretty"; echo; echo "* * * *  $C"; eval $C; done
+ELASTICSEARCH LOG | curl -s 'localhost:9200/logs-2017-03-15/_search?pretty' -d'{"stored_fields":["*"]}'
+ELASTICSEARCH RECOVERY | watch -n 10 "curl -s localhost:9200/_cluster/health?pretty;curl -s localhost:9200/_cat/recovery?v | grep -v done; echo ""; curl -s localhost:9200/_cat/nodes?v"
+ELASTICSEARCH BOX_TYPE | curl -s 'localhost:9200/_cluster/state/metadata/logs-*?pretty' | egrep '^ +"logs-|box_type' | sed 'N;s/\n/ /' | sort
+ELASTICSEARCH BOX_TYPE | curl -s -XPUT 'localhost:9200/logs-2018-03-08/_settings -d '{"index.routing.allocation.require.box_type":"hot"}'
+ELASTICSEARCH CURL | curl -H'Content-Type: application/json' ...
+
+CONSUL KEYSPACE | Upload changes from yaml to keyspace:
+CONSUL KEYSPACE |   https://github.schq.secious.com/Logrhythm/NGLM_Thirdparty/blob/DataIndexer-7.1.7/consul/fileToKeyspace.sh
+CONSUL KEYSPACE | View keyspaces: curl -s 'localhost:8500/v1/kv/configserver?recurse&keys&pretty'
+CONSUL KEYSPACE | View keys: curl -s 'localhost:8500/v1/kv/?keys&pretty'
+CONSUL UPLOAD | sudo ./configupload.sh -c $(hostname -s) 
+
+SHAREPOINT FIELD | https://logrhythm.sharepoint.com/teams/SupportServices/Documents/Forms/AllItems.aspx?RootFolder=%2fteams%2fSupportServices%2fDocuments%2fField%20Procedure%20Docs&FolderCTID=0x0120007C22CA468DB04F409EE3865D480E5E6E
+
+COMMON | http://usbo1part01:8081/artifactory/webapp/#/artifacts/browse/tree/General/INSTALLERS/_bundle/common
+
+DEPLOYMENT TOOL | http://usbo1part01:8081/artifactory/webapp/#/artifacts/browse/tree/General/INSTALLERS/lr-deployment/1.0.0/win/LogRhythmDeploymentTool-1.0.0+48.msi
+DEPLOYMENT TOOL |   to enable remote management: winrm quickconfig
+
+CHECKMARX | Tom's instructions for setting up the jenkins checkmarx integration:
+CHECKMARX | https://github.schq.secious.com/DataIndexer/Spikes/blob/master/US23806-Checkmarx-Jenkins-Integration/README.md
+
+API GATEWAY | https://github.schq.secious.com/pages/Architecture/documentation/content/studies/
+
+DX CONFIG | To configure the DX without restarting all services:
+DX CONFIG | 1. Stop Heartthrob on all nodes
+DX CONFIG | 2. Submit the change using AllConf
+DX CONFIG | 3. Restart configServer on all nodes
+DX CONFIG | 4. Restart the relevant service (whose configuration was changed) 
+DX CONFIG | 5. Start Hearthrob on all nodes
+DX GET_LOGS | https://github.schq.secious.com/raw/Jacob-Delgado/log-analyzer/master/scripts/centos/get_logs.sh
+
+PHIL | carpenter talks: https://logrhythm.app.box.com/folder/26907948159
+
+GTM | https://www.gotomeeting.com -> sign in at top right hand corner
+
+FIPS | https://github.schq.secious.com/gist/sam-volin/7e077faf123dd0b16a922e46f7cbbe2d#enabling-fips-mode-in-lr-732
+FIPS | https://github.schq.secious.com/WebUI/WebConsoleUI/wiki/Building-(FIPS)-OpenSSL
+
+HYPERV | Server: usbo1solscvmm01.development.schq.secious.com:8100
+
+BAZEL | test --test_output=errors --test_summary=terse
+
+DOCKER | change the image dir: https://linuxconfig.org/how-to-move-docker-s-default-var-lib-docker-to-another-directory-on-ubuntu-debian-linux 
 
