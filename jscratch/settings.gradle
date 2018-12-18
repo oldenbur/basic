@@ -8,3 +8,10 @@
  */
 
 rootProject.name = 'jscratch'
+
+// https://stackoverflow.com/questions/25513788/intellij-cant-find-classpath-test-resource
+//task copyTestResources(type: Copy) {
+//    from "${projectDir}/src/test/resources"
+//    into "${buildDir}/classes/test"
+//}
+//processTestResources.dependsOn copyTestResources
