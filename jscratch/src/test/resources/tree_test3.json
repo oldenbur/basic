@@ -1,0 +1,12 @@
+{
+  "data": "20", "children": [
+    {"data": "8", "children": [
+      {"data":  "4"},
+      {"data":  "12", "children": [
+        {"data":  "10"},
+        {"data":  "14"}
+      ]}
+    ]},
+    {"data": "22"}
+  ]
+}

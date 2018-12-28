@@ -1,0 +1,14 @@
+{
+  "data": "100", "children": [
+    {"data": "50", "children": [
+      {"data":  "25"},
+      {"data":  "75"}
+    ]},
+    {"data": "150", "children": [
+      {"data":  "125", "children": [
+        {"data":  "110"}
+      ]},
+      {"data":  "175"}
+    ]}
+  ]
+}
