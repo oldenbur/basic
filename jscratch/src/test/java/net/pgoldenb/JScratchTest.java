@@ -1,44 +1,56 @@
 package net.pgoldenb;
 
+import com.google.common.collect.Lists;
 import org.junit.Test;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Predicate;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+/*
+ *  * Design Patterns
+ *  * Adjacency Matrix graphs
+ *
+ *  * Dijkstras Algo
+ *  * A-star Algo
+ *  * Travelling Salesman
+ *  * Knapsack problem
+ *  * n-choose
+ */
 
 public class JScratchTest {
 
     @Test
     public void test1() {
-        assertEquals("ttr", removeChars("teeter", "aeiou"));
-        assertEquals("abcegecba", removeChars("abcdefgfedcba", "df"));
-        assertEquals("Bttl f th Vwls: Hw vs. Grzny",
-                removeChars("Battle of the Vowels: Hawaii vs. Grozny", "aeiou"));
+        assertEquals(3, binarySearch(Lists.newArrayList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10), intIsLt));
     }
 
-    @Test(expected = ArithmeticException.class)
-    public void testThrows() throws InterruptedException {
-        int i = 10 / 0;
-        System.out.printf("%d%n", i);
-    }
+    private static final int INT_TARGET = 4;
 
-    private String removeChars(String str, String remove) {
+    private Predicate<Integer> intIsLt = i -> i < INT_TARGET;
 
-        Set<Integer> removeSet = new HashSet<>();
-        for (int i=0; i < remove.length();) {
-            int cp = remove.codePointAt(i);
-            i += Character.charCount(cp);
-            removeSet.add(cp);
-        }
+    private <T> int binarySearch(List<T> data, Predicate<T> isLt) {
 
-        StringBuilder buf = new StringBuilder();
-        for (int i=0; i < str.length();) {
-            int cp = str.codePointAt(i);
-            i += Character.charCount(cp);
-            if (!removeSet.contains(cp)) {
-                buf.append(Character.toChars(cp));
+        int winMin = 0, winMax = data.size() - 1;
+        int guess = (winMax + winMin) / 2;
+
+        while (winMax - winMin > 1) {
+            if (isLt.test(data.get(guess))) {
+                winMin = guess;
+            } else {
+                winMax = guess;
             }
+            guess = (winMax + winMin) / 2;
         }
-        return buf.toString();
+
+        T val = data.get(guess);
+        if (isLt.test(val))
+            guess += 1;
+
+        return guess;
     }
 }
