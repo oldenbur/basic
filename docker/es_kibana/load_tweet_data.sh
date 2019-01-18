@@ -1,0 +1,174 @@
+!/bin/bash
+
+curl -XPUT -H'Content-Type: application/json' 'localhost:9200/_template/user' -d'
+{
+  "index_patterns": ["user"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "email": {
+          "type": "text"
+        },
+        "name": {
+          "type": "text"
+        },
+        "username": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'localhost:9200/_template/tweet' -d'
+{
+  "index_patterns": ["tweet"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "_doc": {
+      "properties": {
+        "tweet": {
+          "type": "text"
+        },
+        "user_id": {
+          "type": "integer"
+        },
+        "created_at": {
+          "type": "date"
+        }
+      }
+    }
+  }
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/user/_doc/1?pretty' -d '
+{
+   "email" : "john@smith.com",
+   "name" : "John Smith",
+   "username" : "@john"
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/user/_doc/2?pretty' -d '
+{
+   "email" : "mary@jones.com",
+   "name" : "Mary Jones",
+   "username" : "@mary"
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/3?pretty' -d '
+{
+   "date" : "2014-09-13",
+   "name" : "Mary Jones",
+   "tweet" : "Elasticsearch means full text search has never been so easy",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/4?pretty' -d '
+{
+   "date" : "2014-09-14",
+   "name" : "John Smith",
+   "tweet" : "@mary it is not just text, it does everything",
+   "user_id" : 1
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/5?pretty' -d '
+{
+   "date" : "2014-09-15",
+   "name" : "Mary Jones",
+   "tweet" : "However did I manage before Elasticsearch?",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/6?pretty' -d '
+{
+   "date" : "2014-09-16",
+   "name" : "John Smith",
+   "tweet" : "The Elasticsearch API is really easy to use",
+   "user_id" : 1
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/7?pretty' -d '
+{
+   "date" : "2014-09-17",
+   "name" : "Mary Jones",
+   "tweet" : "The Query DSL is really powerful and flexible",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/8?pretty' -d '
+{
+   "date" : "2014-09-18",
+   "name" : "John Smith",
+   "user_id" : 1
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/9?pretty' -d '
+{
+   "date" : "2014-09-19",
+   "name" : "Mary Jones",
+   "tweet" : "Geo-location aggregations are really cool",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/10?pretty' -d '
+{
+   "date" : "2014-09-20",
+   "name" : "John Smith",
+   "tweet" : "Elasticsearch surely is one of the hottest new NoSQL products",
+   "user_id" : 1
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/11?pretty' -d '
+{
+   "date" : "2014-09-21",
+   "name" : "Mary Jones",
+   "tweet" : "Elasticsearch is built for the cloud, easy to scale",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/12?pretty' -d '
+{
+   "date" : "2014-09-22",
+   "name" : "John Smith",
+   "tweet" : "Elasticsearch and I have left the honeymoon stage, and I still love her.",
+   "user_id" : 1
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/13?pretty' -d '
+{
+   "date" : "2014-09-23",
+   "name" : "Mary Jones",
+   "tweet" : "So yes, I am an Elasticsearch fanboy",
+   "user_id" : 2
+}
+'
+
+curl -XPUT -H'Content-Type: application/json' 'http://localhost:9200/tweet/_doc/14?pretty' -d '
+{
+   "date" : "2014-09-24",
+   "name" : "John Smith",
+   "tweet" : "How many more cheesy tweets do I have to write?",
+   "user_id" : 1
+}
+'
