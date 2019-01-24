@@ -41,6 +41,12 @@ public class TreeTest {
         assertEquals(a, TreeNode.commonAncestor(tree, "14", "4"));
     }
 
+    @Test
+    public void testMaxPath() throws FileNotFoundException {
+        TreeNode<Integer> tree = TreeNode.buildTree(new FileReader("tree_maxPath1.json"));
+        assertEquals(4, TreeNode.maxHeight(tree));
+    }
+
 }
 
 class TreeNode<T> {
