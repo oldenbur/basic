@@ -159,10 +159,10 @@ func (w *registerWorker) register(eventTime time.Time) error {
 		if err != nil {
 			return err
 		}
-		seelog.Infof("using found reserveUrl: %s", reserveUrl)
+		seelog.Infof("posting with scraped reserveUrl: %s", reserveUrl)
 	} else {
 		reserveUrl = urlDateRegexp.ReplaceAllString(cachedUrl, eventTime.Format(urlDateFormat))
-		seelog.Infof("using cached reserveUrl: %s", reserveUrl)
+		seelog.Infof("posting with cached reserveUrl: %s", reserveUrl)
 	}
 
 	return w.PostRegistration(reserveUrl)
