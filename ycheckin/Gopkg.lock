@@ -2,83 +2,112 @@
 
 
 [[projects]]
+  digest = "1:ecae73e07bafd755bc18b20a5b04238b412058de2cc834a09afdd7838b6bafee"
   name = "github.com/PuerkitoBio/goquery"
   packages = ["."]
+  pruneopts = "UT"
   revision = "09540e565986583836b5fc792fe951ec5fd201dd"
   version = "v1.3.0"
 
 [[projects]]
+  digest = "1:66b3310cf22cdc96c35ef84ede4f7b9b370971c4025f394c89a2638729653b11"
   name = "github.com/andybalholm/cascadia"
   packages = ["."]
+  pruneopts = "UT"
   revision = "901648c87902174f774fac311d7f176f8647bdaa"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:50e893a85575fa48dc4982a279e50e2fd8b74e4f7c587860c1e25c77083b8125"
   name = "github.com/cihub/seelog"
   packages = ["."]
+  pruneopts = "UT"
   revision = "d2c6e5aa9fbfdd1c624e140287063c7730654115"
   version = "v2.6"
 
 [[projects]]
+  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
+  pruneopts = "UT"
   revision = "346938d642f2ec3594ed81d874461961cd0faa76"
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:b57c6ad9966352b7e7ef815de0c2a33188d433e94ea48cabf2f76f5151f8b3e1"
   name = "github.com/headzoo/surf"
   packages = [
     "agent",
     "browser",
     "errors",
     "jar",
-    "util"
+    "util",
   ]
+  pruneopts = "UT"
   revision = "60198774ccce43e1d26c80e961497b7d262460b3"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
+  pruneopts = "UT"
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:f85e109eda8f6080877185d1c39e98dd8795e1780c08beca28304b87fd855a1c"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
+  pruneopts = "UT"
   revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
   version = "v1.2.1"
 
 [[projects]]
+  digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
   name = "github.com/urfave/cli"
   packages = ["."]
+  pruneopts = "UT"
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
   version = "v1.20.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:e3cef50f572b56a0eef46a5409e9c2ff6eced4140a48e49be5da80d8164a89d7"
   name = "github.com/vrecan/death"
   packages = ["."]
+  pruneopts = "UT"
   revision = "a6a7840c1cdd4ad8a1cfe568ea382ae54d710235"
 
 [[projects]]
   branch = "master"
+  digest = "1:d610e483f9d284959f3bb01d8917ad0e4efd393a8587123b1e3406fdf37199f0"
   name = "golang.org/x/net"
   packages = [
     "html",
-    "html/atom"
+    "html/atom",
   ]
+  pruneopts = "UT"
   revision = "ae89d30ce0c63142b652837da33d782e2b0a9b25"
 
 [[projects]]
+  digest = "1:18ea5f27fab5210969a334e233c7d1b0fac65bc3cd57cd96e273063c39f38fdf"
   name = "gopkg.in/headzoo/surf.v1"
   packages = ["."]
+  pruneopts = "UT"
   revision = "60198774ccce43e1d26c80e961497b7d262460b3"
   version = "v1.0.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bf3853ba64d978771debb4b973580d3de94313dc7ebd50e13b1279a0bb3f5397"
+  input-imports = [
+    "github.com/PuerkitoBio/goquery",
+    "github.com/cihub/seelog",
+    "github.com/stretchr/testify/assert",
+    "github.com/urfave/cli",
+    "github.com/vrecan/death",
+    "gopkg.in/headzoo/surf.v1",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

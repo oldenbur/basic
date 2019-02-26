@@ -25,7 +25,8 @@ const (
 	regUrlFlag                  = "url"
 	regHttpAddrFlag             = "addr"
 	regHttpAddrEnv              = "YC_ADDR"
-	regEventTime = "regtime"
+	regEventTime                = "regtime"
+	appVersion                  = "0.2"
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 
 	seelog.Infof("ycheckin started")
 	app := cli.NewApp()
-
+	app.Version = appVersion
 	app.Commands = []cli.Command{
 		{
 			Name:  "regloop",
