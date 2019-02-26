@@ -33,7 +33,7 @@ func main() {
 	setupLogging()
 	defer seelog.Flush()
 
-	seelog.Infof("ycheckin started")
+	seelog.Infof("ycheckin v%s started", appVersion)
 	app := cli.NewApp()
 	app.Version = appVersion
 	app.Commands = []cli.Command{
