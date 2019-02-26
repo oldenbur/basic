@@ -26,7 +26,7 @@ const (
 	regHttpAddrFlag             = "addr"
 	regHttpAddrEnv              = "YC_ADDR"
 	regEventTime                = "regtime"
-	appVersion                  = "0.2"
+	appVersion                  = "0.3"
 )
 
 func main() {
