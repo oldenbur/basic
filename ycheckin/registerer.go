@@ -27,8 +27,8 @@ const (
 	regPostAlert_OneReg   = "one reservation per individual may be made"
 )
 
+var urlCodeRegexp = regexp.MustCompile(`.+/(\d*)$`)
 var urlDateRegexp = regexp.MustCompile(`\d{4}\-\d{2}\-\d{2}`)
-
 var wsRegexp = regexp.MustCompile(`(?: {2,}|\n)`)
 
 type RegisterWorkerConfig interface {
@@ -48,8 +48,9 @@ type EventRegistrar interface {
 	EventRegister(event time.Time) error
 }
 
-type UrlRegistrar interface {
+type RegHttpClient interface {
 	PostRegistration(reserveUrl string) error
+	FindReserveUrl(eventTime time.Time) (string, error)
 }
 
 type registerWorker struct {
@@ -57,26 +58,28 @@ type registerWorker struct {
 	doneChan     chan bool
 	config       RegisterWorkerConfig
 	registerUrls map[time.Weekday]string
+	httpClient   RegHttpClient
 }
 
-func NewRegisterWorker(config RegisterWorkerConfig) RegisterWorker {
-	return newRegisterWorker(config)
+func NewRegisterWorker(config RegisterWorkerConfig, codeCache map[time.Weekday]string) RegisterWorker {
+	return newRegisterWorker(config, codeCache, &httpClientImpl{})
 }
 
-func NewUrlRegistrar() UrlRegistrar {
-	return newRegisterWorker(NewConfigBuilder().Build())
+func NewRegHttpClient() RegHttpClient {
+	return &httpClientImpl{}
 }
 
 func NewEventRegistrar() EventRegistrar {
-	return newRegisterWorker(NewConfigBuilder().Build())
+	return newRegisterWorker(NewConfigBuilder().Build(), make(map[time.Weekday]string), &httpClientImpl{})
 }
 
-func newRegisterWorker(config RegisterWorkerConfig) *registerWorker {
+func newRegisterWorker(config RegisterWorkerConfig, registerUrls map[time.Weekday]string, httpClient RegHttpClient) *registerWorker {
 	return &registerWorker{
 		&sync.WaitGroup{},
 		make(chan bool),
 		config,
-		make(map[time.Weekday]string),
+		registerUrls,
+		httpClient,
 	}
 }
 
@@ -103,6 +106,15 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 			}
 		}
 	}()
+}
+
+func (w *registerWorker) Close() error {
+	seelog.Infof("registerWorker closing...")
+	w.doneChan <- true
+	w.wg.Wait()
+	seelog.Infof("registerWorker closed")
+
+	return nil
 }
 
 func (w *registerWorker) registerForEvent(event time.Time) {
@@ -137,38 +149,74 @@ func (w *registerWorker) registerForEvent(event time.Time) {
 	seelog.Warnf("giving up registration after %d attempts", w.config.RegisterRetryMax())
 }
 
-func (w *registerWorker) Close() error {
-	seelog.Infof("registerWorker closing...")
-	w.doneChan <- true
-	w.wg.Wait()
-	seelog.Infof("registerWorker closed")
-
-	return nil
-}
-
 func (w *registerWorker) register(eventTime time.Time) error {
 
 	seelog.Infof("register event: %v", eventTime)
 
-	var reserveUrl, cachedUrl string
+	var reserveUrl, cachedCode string
 	var ok bool
 	var err error
 
-	if cachedUrl, ok = w.registerUrls[eventTime.Weekday()]; !ok {
-		reserveUrl, err = w.findReserveUrl(eventTime)
+	cachedCode, ok = w.registerUrls[eventTime.Weekday()]
+	if !ok {
+		reserveUrl, err = w.httpClient.FindReserveUrl(eventTime)
 		if err != nil {
 			return err
 		}
+
+		urlCodeParse := urlCodeRegexp.FindStringSubmatch(reserveUrl)
+		if len(urlCodeParse) == 2 {
+			w.registerUrls[eventTime.Weekday()] = urlCodeParse[1]
+		} else {
+			seelog.Warnf("failed to parse code from reserveUrl: %s", reserveUrl)
+		}
+
 		seelog.Infof("posting with scraped reserveUrl: %s", reserveUrl)
 	} else {
-		reserveUrl = urlDateRegexp.ReplaceAllString(cachedUrl, eventTime.Format(urlDateFormat))
+		reserveUrl = fmt.Sprintf(ymcaReserveUrl, eventTime.Format(urlDateFormat), cachedCode)
 		seelog.Infof("posting with cached reserveUrl: %s", reserveUrl)
 	}
 
-	return w.PostRegistration(reserveUrl)
+	return w.httpClient.PostRegistration(reserveUrl)
 }
 
-func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
+func (w *registerWorker) EventRegister(eventTime time.Time) error {
+	return w.register(eventTime)
+}
+
+type httpClientImpl struct {}
+
+func (w *httpClientImpl) PostRegistration(reserveUrl string) error {
+
+	seelog.Debugf("posting registration at %s", reserveUrl)
+	browser := surf.NewBrowser()
+	err := browser.Open(reserveUrl)
+	if err != nil {
+		return fmt.Errorf("browser.Open(reserveUrl) error: %v", err)
+	}
+
+	form, _ := browser.Form("form.form")
+	form.Input("name", registrationName)
+	form.Input("email", registrationEmail)
+	if err = form.Submit(); err != nil {
+		return fmt.Errorf("form.Submit error: %v", err)
+	}
+
+	alertText := browser.Dom().Find("div.alert").First().Text()
+	alertText = wsRegexp.ReplaceAllString(alertText, "")
+	seelog.Debugf("post alert text: %v", alertText)
+
+	if !strings.Contains(alertText, regPostAlert_Reserved) &&
+		!strings.Contains(alertText, regPostAlert_WaitList) &&
+		!strings.Contains(alertText, regPostAlert_OneReg) {
+
+		return fmt.Errorf("registration failed: %v", alertText)
+	}
+
+	return nil
+}
+
+func (w *httpClientImpl) FindReserveUrl(eventTime time.Time) (string, error) {
 
 	var reserveUrl string
 	var err error
@@ -208,50 +256,14 @@ func (w *registerWorker) findReserveUrl(eventTime time.Time) (string, error) {
 
 	if reserveUrl == "" {
 		err = errors.New("failed to find reserveUrl")
-	} else {
-		w.registerUrls[eventTime.Weekday()] = reserveUrl
 	}
 
 	return reserveUrl, err
 }
 
-func (w *registerWorker) isEventNameMatch(title string) bool {
+func (w *httpClientImpl) isEventNameMatch(title string) bool {
 	titleLower := strings.ToLower(title)
 	return strings.Contains(titleLower, "adult") &&
 		strings.Contains(titleLower, "pick") &&
 		!strings.Contains(titleLower, "goal")
-}
-
-func (w *registerWorker) PostRegistration(reserveUrl string) error {
-
-	seelog.Debugf("posting registration at %s", reserveUrl)
-	browser := surf.NewBrowser()
-	err := browser.Open(reserveUrl)
-	if err != nil {
-		return fmt.Errorf("browser.Open(reserveUrl) error: %v", err)
-	}
-
-	form, _ := browser.Form("form.form")
-	form.Input("name", registrationName)
-	form.Input("email", registrationEmail)
-	if err = form.Submit(); err != nil {
-		return fmt.Errorf("form.Submit error: %v", err)
-	}
-
-	alertText := browser.Dom().Find("div.alert").First().Text()
-	alertText = wsRegexp.ReplaceAllString(alertText, "")
-	seelog.Debugf("post alert text: %v", alertText)
-
-	if !strings.Contains(alertText, regPostAlert_Reserved) &&
-		!strings.Contains(alertText, regPostAlert_WaitList) &&
-		!strings.Contains(alertText, regPostAlert_OneReg) {
-
-		return fmt.Errorf("registration failed: %v", alertText)
-	}
-
-	return nil
-}
-
-func (w *registerWorker) EventRegister(eventTime time.Time) error {
-	return w.register(eventTime)
 }

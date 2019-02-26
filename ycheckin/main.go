@@ -6,6 +6,8 @@ import (
 	"github.com/urfave/cli"
 	"github.com/vrecan/death"
 	"os"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -22,12 +24,16 @@ const (
 	registerRetryMaxEnv         = "YC_REG_RETRY_MAX"
 	registerRetryLogIntvlFlag   = "regretrylog"
 	registerRetryLogIntvlEnv    = "YC_REG_RETRY_LOG"
+	cachedCodesFlag             = "cachedcodes"
+	cachedCodesEnv              = "YC_CACHED_CODES"
 	regUrlFlag                  = "url"
 	regHttpAddrFlag             = "addr"
 	regHttpAddrEnv              = "YC_ADDR"
 	regEventTime                = "regtime"
 	appVersion                  = "0.3"
 )
+
+var codeCacheRegexp = regexp.MustCompile(`(SUN|MON|TUE|WED|THU|FRI|SAT)=(\d+)`)
 
 func main() {
 	setupLogging()
@@ -114,8 +120,15 @@ func yregister(c *cli.Context) error {
 
 	var config *ycheckinConfig
 	var err error
-	if config, err = buildConfig(c); err != nil {
-		return err
+	config, err = buildConfig(c)
+	if err != nil {
+		return seelog.Errorf("buildConfig error: %v", err)
+	}
+
+	var codeCache map[time.Weekday]string
+	codeCache, err = buildCodeCache(c)
+	if err != nil {
+		return seelog.Errorf("buildCodeCache error: %v", err)
 	}
 
 	s := NewWeeklyTickerScheduler(config.RegisterLocation())
@@ -124,7 +137,7 @@ func yregister(c *cli.Context) error {
 		return seelog.Errorf("ScheduleWeekly error: %v", err)
 	}
 
-	w := NewRegisterWorker(config)
+	w := NewRegisterWorker(config, codeCache)
 	w.Work(ticker)
 
 	h := newRegHttp(config, s, w)
@@ -167,6 +180,33 @@ func buildConfig(c *cli.Context) (*ycheckinConfig, error) {
 	return configBuilder.Build(), nil
 }
 
+func buildCodeCache(c *cli.Context) (map[time.Weekday]string, error) {
+	cache := map[time.Weekday]string{}
+
+	codesCacheVal := c.String(cachedCodesFlag)
+	if codesCacheVal != "" {
+
+		codes := strings.Split(codesCacheVal, ",")
+		for _, codeVal := range codes {
+
+			codeParse := codeCacheRegexp.FindStringSubmatch(codeVal)
+			if len(codeParse) != 3 {
+				return cache, fmt.Errorf("buildCodeCache unexpected parse result '%v' for cacheVal: %s", codeParse, codeVal)
+			}
+
+			weekday, err := DayStringToWeekday(codeParse[1])
+			if err != nil {
+				return cache, fmt.Errorf("buildCodeCache DayStringToWeekday(%s) error: %v", codeParse[1], err)
+			}
+
+			cache[weekday] = codeParse[2]
+		}
+	}
+
+
+	return cache, nil
+}
+
 func postRegistration(c *cli.Context) error {
 
 	url := c.String(regUrlFlag)
@@ -174,7 +214,7 @@ func postRegistration(c *cli.Context) error {
 		return seelog.Errorf("%s must be specified", regUrlFlag)
 	}
 
-	p := NewUrlRegistrar()
+	p := NewRegHttpClient()
 	return p.PostRegistration(url)
 }
 
@@ -192,6 +232,27 @@ func eventRegistration(c *cli.Context) error {
 
 	p := NewEventRegistrar()
 	return p.EventRegister(event)
+}
+
+func DayStringToWeekday(day string) (time.Weekday, error) {
+	switch day {
+	case "SUN":
+		return time.Sunday, nil
+	case "MON":
+		return time.Monday, nil
+	case "TUE":
+		return time.Tuesday, nil
+	case "WED":
+		return time.Wednesday, nil
+	case "THU":
+		return time.Thursday, nil
+	case "FRI":
+		return time.Friday, nil
+	case "SAT":
+		return time.Saturday, nil
+	default:
+		return time.Sunday, fmt.Errorf("invalid day string: %s", day)
+	}
 }
 
 func setupLogging() {

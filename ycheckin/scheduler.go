@@ -175,34 +175,13 @@ func (s *weeklyTickerScheduler) Close() error {
 	return nil
 }
 
-func (s *weeklyTickerScheduler) dayStringToWeekday(day string) (time.Weekday, error) {
-	switch day {
-	case "SUN":
-		return time.Sunday, nil
-	case "MON":
-		return time.Monday, nil
-	case "TUE":
-		return time.Tuesday, nil
-	case "WED":
-		return time.Wednesday, nil
-	case "THU":
-		return time.Thursday, nil
-	case "FRI":
-		return time.Friday, nil
-	case "SAT":
-		return time.Saturday, nil
-	default:
-		return time.Sunday, fmt.Errorf("invalid day string: %s", day)
-	}
-}
-
 func (s *weeklyTickerScheduler) buildPendingDate(dayStr, hourStr, minStr, secStr, msStr string) (time.Time, error) {
 
 	var err error
 	var t time.Time
 	var targetDay time.Weekday
 
-	if targetDay, err = s.dayStringToWeekday(dayStr); err != nil {
+	if targetDay, err = DayStringToWeekday(dayStr); err != nil {
 		return t, fmt.Errorf(`dayString '%s' error: %v`, dayStr, err)
 	}
 

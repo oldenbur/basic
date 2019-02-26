@@ -11,7 +11,7 @@ func init() { setupLogging() }
 
 func TestIsEventNameMatch(t *testing.T) {
 	defer seelog.Flush()
-	s := newRegisterWorker(NewConfigBuilder().Build())
+	s := &httpClientImpl{}
 
 	assert.True(t, s.isEventNameMatch("Adult Pick-Up Hockey"))
 	assert.True(t, s.isEventNameMatch("Adult Pick-Up Hockey (Novice)"))
