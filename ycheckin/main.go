@@ -33,7 +33,7 @@ const (
 	appVersion                  = "0.3"
 )
 
-var codeCacheRegexp = regexp.MustCompile(`(SUN|MON|TUE|WED|THU|FRI|SAT)=(\d+)`)
+var codeCacheRegexp = regexp.MustCompile(`(SUN|MON|TUE|WED|THU|FRI|SAT):(\d+)`)
 
 func main() {
 	setupLogging()
@@ -74,8 +74,13 @@ func main() {
 				},
 				cli.StringFlag{
 					Name:   regHttpAddrFlag,
-					Usage:  "comma-delimited local times to register in DAY_HH:MM:SS.000 format",
+					Usage:  "host/port pair on which to bind the http API",
 					EnvVar: regHttpAddrEnv,
+				},
+				cli.StringFlag{
+					Name:   cachedCodesFlag,
+					Usage:  "host/port pair on which to bind the http API, e.g. 0.0.0.0:80",
+					EnvVar: cachedCodesEnv,
 				},
 			},
 			Action: yregister,
@@ -125,16 +130,16 @@ func yregister(c *cli.Context) error {
 		return seelog.Errorf("buildConfig error: %v", err)
 	}
 
-	var codeCache map[time.Weekday]string
-	codeCache, err = buildCodeCache(c)
-	if err != nil {
-		return seelog.Errorf("buildCodeCache error: %v", err)
-	}
-
 	s := NewWeeklyTickerScheduler(config.RegisterLocation())
 	ticker, err := s.ScheduleWeekly(sched)
 	if err != nil {
 		return seelog.Errorf("ScheduleWeekly error: %v", err)
+	}
+
+	var codeCache map[time.Weekday]string
+	codeCache, err = buildCodeCache(c)
+	if err != nil {
+		return seelog.Errorf("buildCodeCache error: %v", err)
 	}
 
 	w := NewRegisterWorker(config, codeCache)

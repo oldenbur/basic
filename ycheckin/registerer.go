@@ -54,11 +54,11 @@ type RegHttpClient interface {
 }
 
 type registerWorker struct {
-	wg           *sync.WaitGroup
-	doneChan     chan bool
-	config       RegisterWorkerConfig
-	registerUrls map[time.Weekday]string
-	httpClient   RegHttpClient
+	wg         *sync.WaitGroup
+	doneChan   chan bool
+	config     RegisterWorkerConfig
+	codeCache  map[time.Weekday]string
+	httpClient RegHttpClient
 }
 
 func NewRegisterWorker(config RegisterWorkerConfig, codeCache map[time.Weekday]string) RegisterWorker {
@@ -73,12 +73,12 @@ func NewEventRegistrar() EventRegistrar {
 	return newRegisterWorker(NewConfigBuilder().Build(), make(map[time.Weekday]string), &httpClientImpl{})
 }
 
-func newRegisterWorker(config RegisterWorkerConfig, registerUrls map[time.Weekday]string, httpClient RegHttpClient) *registerWorker {
+func newRegisterWorker(config RegisterWorkerConfig, codeCache map[time.Weekday]string, httpClient RegHttpClient) *registerWorker {
 	return &registerWorker{
 		&sync.WaitGroup{},
 		make(chan bool),
 		config,
-		registerUrls,
+		codeCache,
 		httpClient,
 	}
 }
@@ -90,7 +90,7 @@ func (w *registerWorker) Work(ticker WeeklyTicker) {
 		w.wg.Add(1)
 		defer w.wg.Done()
 
-		seelog.Infof("registerWorker starting")
+		seelog.Infof("registerWorker starting with codeCache: %v", w.codeCache)
 
 		for {
 			select {
@@ -119,19 +119,19 @@ func (w *registerWorker) Close() error {
 
 func (w *registerWorker) registerForEvent(event time.Time) {
 
-	seelog.Debugf("registering with registerUrls: %v", w.registerUrls)
+	seelog.Debugf("registering with codeCache: %v", w.codeCache)
 	for i := 0; i < w.config.RegisterRetryMax(); i++ {
 
 		err := w.register(event)
 		isSuccess := err == nil
 		if isSuccess {
-			seelog.Debugf("completed registration with registerUrls: %v", w.registerUrls)
+			seelog.Debugf("completed registration with codeCache: %v", w.codeCache)
 			return
 		}
 
 		seelog.Errorf("register error: %v", err)
 
-		delete(w.registerUrls, event.Weekday())
+		delete(w.codeCache, event.Weekday())
 		if i == 0 {
 			err = w.register(event)
 			isSuccess := err == nil
@@ -157,7 +157,7 @@ func (w *registerWorker) register(eventTime time.Time) error {
 	var ok bool
 	var err error
 
-	cachedCode, ok = w.registerUrls[eventTime.Weekday()]
+	cachedCode, ok = w.codeCache[eventTime.Weekday()]
 	if !ok {
 		reserveUrl, err = w.httpClient.FindReserveUrl(eventTime)
 		if err != nil {
@@ -166,7 +166,7 @@ func (w *registerWorker) register(eventTime time.Time) error {
 
 		urlCodeParse := urlCodeRegexp.FindStringSubmatch(reserveUrl)
 		if len(urlCodeParse) == 2 {
-			w.registerUrls[eventTime.Weekday()] = urlCodeParse[1]
+			w.codeCache[eventTime.Weekday()] = urlCodeParse[1]
 		} else {
 			seelog.Warnf("failed to parse code from reserveUrl: %s", reserveUrl)
 		}
