@@ -3,6 +3,8 @@ vendor
 ycheckin
 ycheckin.log*
 
+mock_*.go
+
 *.out
 *.swp
 
