@@ -128,7 +128,7 @@ class Creature {
 
     private void validateCreatureSegmentOnBoard(BoardLoc loc, int boardDim) {
         if (loc.x < 0 || loc.x >= boardDim || loc.y < 0 || loc.y >= boardDim) {
-            throw new IllegalArgumentException(String.format("segment %s not on board of dimension %d", loc, boardDim));
+            throw new IllegalArgumentException(String.format("segment %s not on board treeOf dimension %d", loc, boardDim));
         }
     }
 
@@ -172,7 +172,7 @@ class Creature {
         }
 
         if (loc.x < 0 || loc.y < 0 || loc.x >= boardDim || loc.y >= boardDim) {
-            throw new IllegalArgumentException(String.format("centipede cannot move to %s outside of boardDim %d", loc, boardDim));
+            throw new IllegalArgumentException(String.format("centipede cannot move to %s outside treeOf boardDim %d", loc, boardDim));
         }
 
         List<BoardLoc> newSegs;

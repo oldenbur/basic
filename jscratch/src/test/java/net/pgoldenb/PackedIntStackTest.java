@@ -110,7 +110,7 @@ public class PackedIntStackTest {
 
             int bucket = data.get(slot);
             int popMask = ((1 << width) - 1) << offset;
-            System.out.println(String.format("Popping popMask:\n%s\noff of bucket element %d:\n%s\n",
+            System.out.println(String.format("Popping popMask:\n%s\noff treeOf bucket element %d:\n%s\n",
                     printBinary(popMask), slot, printBinary(bucket)));
             int val = (bucket & popMask) >> offset;
 
