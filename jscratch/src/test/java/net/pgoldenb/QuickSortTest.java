@@ -1,46 +1,66 @@
 package net.pgoldenb;
 
-import com.google.common.collect.Sets;
 import org.junit.Test;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
-public class JScratchTest {
+public class QuickSortTest {
 
     @Test
     public void test1() {
-//        assertEquals(3, canCompleteCircuit(ints(1, 2, 3, 4, 5), ints(3, 4, 5, 1, 2)));
-        assertEquals(3, canCompleteCircuit(ints(4, 5, 2, 6, 5, 3), ints(3, 2, 7, 3, 2, 9)));
 
+        assertTrue(isSorted(quickSort(l(1, 2, 3, 4))));
+        assertTrue(isSorted(quickSort(l(4, 3, 2, 1))));
+        assertTrue(isSorted(quickSort(l(5, 3, 8, 1, 2, 9, 4, 0, 7, 6))));
     }
 
-    public int canCompleteCircuit(int[] gas, int[] cost) {
+    <T extends Comparable<T>> boolean isSorted(List<T> data) {
+        if (data == null || data.size() < 2) return true;
 
-        int st = 0;
-        do {
-            while (st < gas.length && gas[st] < cost[st]) st++;
-            if (st >= gas.length) return -1;
+        for (int i = 1; i < data.size(); i++) {
+            if (data.get(i - 1).compareTo(data.get(i)) > 0)
+                return false;
+        }
+        return true;
+    }
 
-            int tank = 0;
-            int trav = st;
-            do {
-                tank += gas[trav] - cost[trav];
-                if (tank < 0)
-                    trav = st;
-                else
-                    trav = (trav + 1) % gas.length;
-            } while (trav != st);
+    public <T extends Comparable<T>> List<T> quickSort(List<T> data) {
+        if (data == null || data.size() < 2) return data;
+        quickSort(data, 0, data.size() - 1);
+        return data;
+    }
 
-            if(tank >= 0) return st;
-            st++;
-        } while (st < gas.length);
+    <T extends Comparable<T>> void quickSort(List<T> data, int lo, int hi) {
+        if (lo >= hi) return;
+        int p = partition(data, lo, hi);
+        quickSort(data, lo, p);
+        quickSort(data, p + 1, hi);
+    }
 
-        return -1;
+    <T extends Comparable<T>> int partition(List<T> data, int lo, int hi) {
+        T pVal = data.get((lo + hi) / 2);
+        int i = lo - 1, j = hi + 1;
+        while (true) {
+
+            do { i += 1; } while (data.get(i).compareTo(pVal) < 0);
+            do { j -= 1; } while (data.get(j).compareTo(pVal) > 0);
+
+            if ( i >= j) return j;
+            swap(data, i, j);
+        }
+    }
+
+    <T> void swap(List<T> data, int i, int j) {
+        if (data == null || i < 0 || i >= data.size() || j < 0 || j >= data.size())
+            throw new IllegalStateException(String.format("bad parameters to swap - i: %d  j: %d  data.size: %s", i, j, (data == null ? "null" : String.valueOf(data.size()))));
+        if (i == j) return;
+
+        T tmp = data.get(i);
+        data.set(i, data.get(j));
+        data.set(j, tmp);
     }
 
 
@@ -68,9 +88,7 @@ public class JScratchTest {
         return true;
     }
 
-    static <T> List<T> l(T... vals) { return new ArrayList(Arrays.asList(vals)); }
-
-    static <T> Set<T> s(T... vals) { return Sets.newHashSet(vals); }
+    static <T> List<T> l(T... vals) { return Arrays.asList(vals); }
 
     static TreeNode treeOf(int val, TreeNode left, TreeNode right) {
         TreeNode ret = new TreeNode(val);
@@ -111,46 +129,6 @@ public class JScratchTest {
                 return false;
             }
 
-            return true;
-        }
-    }
-
-    static Node ntreeOf(int val, Node... children) {
-
-        List<Node> c = new ArrayList();
-        for (Node n : children)
-            c.add(n);
-        return new Node(val, c);
-    }
-
-    static class Node {
-        public int val;
-        public List<Node> children;
-
-        public Node() {}
-
-        public Node(int _val, List<Node> _children) {
-            val = _val;
-            children = _children;
-        }
-
-        @Override
-        public boolean equals(Object other) {
-
-            if (other == null) return false;
-            if (!(other instanceof Node)) return false;
-
-            Node otherNode = (Node) other;
-
-            if (val != otherNode.val) return false;
-            for (Node c : children) {
-                boolean found = false;
-                for (Node oc : otherNode.children) {
-                    if (c.equals(oc))
-                        found = true;
-                }
-                if (!found) return false;
-            }
             return true;
         }
     }
