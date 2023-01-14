@@ -14,14 +14,14 @@ const sa = (arr) => arr.map(o => JSON.stringify(o))
 const ss = (set) => Array.from(set.values())
 
 class Monkey {
-  items: Array<bigint>;
+  items: Array<number>;
   op: string;
-  testDiv: bigint;
+  testDiv: number;
   t: number;
   f: number;
   insp = 0;
 
-  constructor(items: Array<bigint>, op: string, testDiv: bigint, t: number, f: number) {
+  constructor(items: Array<number>, op: string, testDiv: number, t: number, f: number) {
     this.items = items;
     this.op = op;
     this.testDiv = testDiv;
@@ -29,14 +29,14 @@ class Monkey {
     this.f = f;
   }
 
-  applyOp(old: bigint): bigint {
+  applyOp(old: number): number {
     const comp: Array<string> = this.op.match(/(.) (\S+)/);
-    const val: bigint =
-      comp[2].localeCompare("old") === 0 ? old : BigInt(comp[2]);
+    const val: number =
+      comp[2].localeCompare("old") === 0 ? old : Number(comp[2]);
     return comp[1].localeCompare("+") === 0 ? old + val : old * val;
   }
 
-  applyTest(wor: bigint): number {
+  applyTest(wor: number): number {
     return (Number(wor % this.testDiv) === 0) ? this.t : this.f;
   }
 
@@ -47,23 +47,25 @@ class Monkey {
 
 function parseMonkey(block: Array<string>): Monkey {
   return new Monkey(
-    block[1].match(startingRe)[1].split(", ").map(s => BigInt(s)),
+    block[1].match(startingRe)[1].split(", ").map(s => Number(s)),
     block[2].match(opRe)[1],
-    BigInt(block[3].match(testRe)[1]),
+    Number(block[3].match(testRe)[1]),
     Number(block[4].match(trueRe)[1]),
     Number(block[5].match(falseRe)[1]));
 }
 
-function doRound(monkeys: Monkey[]): Monkey[] {
+function doRound(monkeys: Monkey[], worryMod: number): Monkey[] {
   for (let i=0; i < monkeys.length; i++) {
     while (monkeys[i].items.length > 0) {
       monkeys[i].insp += 1;
-      const it: bigint= monkeys[i].items.shift();
-      const itOp: bigint= monkeys[i].applyOp(it);
-      //const itBor: bigint= Math.trunc(itOp / 3);
-      const mNext: number = monkeys[i].applyTest(itOp);
+      const it: number = monkeys[i].items.shift();
+      const itOp: number = monkeys[i].applyOp(it);
+      //const itBor: number = Math.trunc(itOp / 3);
+      const itBor: number = itOp % worryMod;
+      
+      const mNext: number = monkeys[i].applyTest(itBor);
       //console.log(`i:${i} it:${it} itOp:${itOp} itBor:${itBor} mNext:${mNext}`);
-      monkeys[mNext].items.push(itOp);
+      monkeys[mNext].items.push(itBor);
     }
   }
   //let i=0;
@@ -71,7 +73,7 @@ function doRound(monkeys: Monkey[]): Monkey[] {
   return monkeys;
 }
 
-fs.readFile('2022d11_sm.data', 'utf8', (err, data) => {
+fs.readFile('2022d11.data', 'utf8', (err, data) => {
   if (err) throw err;
 
   let monkeys: Array<Monkey> =
@@ -84,8 +86,9 @@ fs.readFile('2022d11_sm.data', 'utf8', (err, data) => {
         return blocks;
       }, [])
       .map(block => parseMonkey(block));
-  for (let i=0; i < 2000; i++) {
-    monkeys = doRound(monkeys);
+  const worryMod: number = monkeys.reduce((w, m) => w * m.testDiv, 1);
+  for (let i=0; i < 10000; i++) {
+    monkeys = doRound(monkeys, worryMod);
   }
   let n=0;
   monkeys.forEach(m => console.log(`Monkey ${n++}: ${s(m.insp)}`));
