@@ -3,7 +3,7 @@ name = "interview"
 version = "0.1.0"
 description = "Practice scripts for coding interviews"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "dataclasses>=0.8",
     "pytest>=9.0.3",
