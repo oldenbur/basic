@@ -1,5 +1,519 @@
 import copy
+from builtins import *
 from dataclasses import dataclass, field
+from bisect import bisect_left
+import heapq
+
+INF: int = float('inf')
+
+
+class ThreeSum:
+    def threeSum(self, nums: list[int]) -> list[list[int]]:
+        
+        nums.sort()
+        # l, r = 0, len(nums)-1
+        result: set[tuple[int, int, int]] = set()
+
+        i = 0
+        while nums[i] <= 0 and i <= len(nums) - 3:
+
+            j, k = i+1, len(nums)-1
+            target = abs(nums[i])
+
+            while j < k:
+                cur = nums[j] + nums[k]
+                if cur == target:
+                    result.add((nums[i], nums[j], nums[k]))
+                if cur <= target:
+                    j += 1
+                else:
+                    k -= 1                
+
+            i += 1
+
+        return [[n1, n2, n3] for (n1, n2, n3) in result]
+
+
+    def test_threeSum(self, nums: list[int], expected: set[tuple[int, int, int]]):
+        actual = self.threeSum(nums)
+        actual_set = set([tuple(l) for l in actual])
+        msg = f"threeSum({nums}) = {actual}"
+        print(msg)
+        assert actual_set == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_threeSum([0,0,0], set([(0,0,0)]))
+        s.test_threeSum([-1,0,1,2,-1,-4], set([(-1,-1,2), (-1,0,1)]))
+        s.test_threeSum([-100,-70,-60,110,120,130,160], set([(-100,-60,160), (-70,-60,130)]))
+
+
+class RotateImage:
+    def rotate(self, matrix: list[list[int]]) -> None:
+
+        def move(r: int, c: int):
+            dr = c
+            dc = N - r - 1
+            matrix[dr][dc] = matrix[r][c]
+
+        N = len(matrix)
+        for r in range(int(N/2)):
+            for c in range(r, N - r - 1):
+
+                temp = matrix[r][c]
+                move(N - c - 1 , r)
+                move(N - r - 1, N - c - 1)
+                move(c, N - r - 1)
+                matrix[c][N - r - 1] = temp
+
+
+    def test_rotate(self, matrix: list[list[int]], expected: list[list[int]]):
+        actual = copy.deepcopy(matrix)
+        self.rotate(actual)
+        msg = f"rotate({matrix}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_rotate([[1, 2, 3], [4, 5, 6], [7, 8, 9]], [[7, 4, 1], [8, 5, 2], [9, 6, 3]])
+        s.test_rotate([[1, 2, 3, 4, 5], [6, 7, 8, 9, 10], [11, 12, 13, 14, 15], [16, 17, 18, 19, 20], [21, 22, 23, 24, 25]],
+                      [[21, 16, 11, 6, 1], [22, 17, 12, 7, 2], [23, 18, 13, 8, 3], [24, 19, 14, 9, 4], [25, 20, 15, 10, 5]])
+
+
+class SolveBlockMaze:
+
+    @dataclass(frozen=True, order=True)
+    class _Pt:
+        r: int
+        c: int
+
+    _DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]
+
+    def solveBlockMaze(self, maze: list[list[int]]) -> list[_Pt]:
+        
+        N = len(maze)
+        q: list[tuple[int, Solution._Pt]] = [(0, Solution._Pt(0, 0))]
+        dist: dict[Solution._Pt, int] = {Solution._Pt(0, 0): 0}
+        prev: dict[Solution._Pt, Solution._Pt] = {}
+
+        def _build_path(end: Solution._Pt) -> list[Solution._Pt]:
+            result = [end]
+            next = prev.get(end, None)
+            while next:
+                result.append(next)
+                next = prev.get(next, None)
+            return result
+
+        while q:
+            cur = heapq.heappop(q)
+
+            cur_cost, cur_pt = cur
+            for dir in Solution._DIRS:
+                new_pt = Solution._Pt(cur_pt.r + dir[0], cur_pt.c + dir[1])
+                if new_pt.r < 0 or new_pt.r >= N or new_pt.c < 0 or new_pt.c >= N:
+                    continue
+
+                orig_dist = dist.get(new_pt, INF)
+                new_dist = cur_cost + maze[new_pt.r][new_pt.c]
+                if new_dist < orig_dist:
+
+                    dist[new_pt] = new_dist
+                    prev[new_pt] = cur_pt
+                    heapq.heappush(q, (new_dist, new_pt))
+
+                    if new_pt.r == N-1 and new_pt.c == N-1:
+                        return _build_path(new_pt)
+
+        assert False, f"failed to find min path for input maze: {maze}"
+
+
+    def _test_solveMaze(self, maze: list[list[int]], expected: list[tuple[int, int]]):
+        actual = self.solveBlockMaze(maze)
+        msg = f"solveMaze({maze}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        maze1 = [
+            [0, 1, 1, 0],
+            [0, 1, 1, 1],
+            [0, 0, 1, 0],
+            [0, 1, 1, 0],
+        ]
+
+        s._test_solveMaze(maze1, [
+            Solution._Pt(3, 3),
+            Solution._Pt(2, 3),
+            Solution._Pt(2, 2),
+            Solution._Pt(2, 1),
+            Solution._Pt(2, 0),
+            Solution._Pt(1, 0),
+            Solution._Pt(0, 0),
+        ])
+
+
+
+class RemoveNthFromEnd:
+    def removeNthFromEnd(self, head: ListNode | None, n: int) -> ListNode | None:
+        cur = head
+        len = 0
+        for i in range(n+1):
+            cur = cur.next
+            len += 1
+            if not cur and n == len:
+                head = head.next
+                return head
+
+        trailer = head
+        while cur:
+            trailer = trailer.next
+            cur = cur.next
+
+        if trailer.next:
+            trailer.next = trailer.next.next
+        
+        return head
+
+
+    def test_removeNth(self, head: str, n: int, expected: str):
+        actual = self.removeNthFromEnd(_build_list(head), n)
+        actual = _list_str(actual)
+        msg = f"swapPairs({head}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_removeNth("[1, 2, 3, 4, 5]", 2, "[1, 2, 3, 5]")
+        s.test_removeNth("[1, 2, 3, 4, 5]", 1, "[1, 2, 3, 4]")
+        s.test_removeNth("[1, 2, 3, 4, 5]", 5, "[2, 3, 4, 5]")
+        s.test_removeNth("[1, 2]", 1, "[1]")
+
+
+# Definition for singly-linked list.
+@dataclass
+class ListNode[T]:
+    val: T
+    next: ListNode[T] | None = None
+
+
+def _build_list(listStr: str) -> ListNode | None:
+    """
+    "[0,1,2]" -> [0,1,2]
+    """
+    head: ListNode = None
+    cur: ListNode = None
+    for item in [int(i.strip()) for i in listStr.removeprefix("[").removesuffix("]").split(",")]:
+        if head is None:
+            head = ListNode(item)
+            cur = head
+        else:
+            cur.next = ListNode(item)
+            cur = cur.next
+    return head
+
+
+def _list_str(head: ListNode | None) -> str:
+    """
+    [0,1,2] -> "[0,1,2]"
+    """
+    result = "["
+    cur: ListNode = head
+    while cur:
+        result += str(cur.val) if len(result) == 1 else f", {str(cur.val)}"
+        cur = cur.next
+    result += "]"
+    return result
+
+
+class SwapListPairs:
+    def swapPairs(self, head: ListNode | None) -> ListNode | None:
+        if not head:
+            return None
+        
+        cur: ListNode = head
+        prev: ListNode = None
+        while cur:
+            if not cur.next:
+                break
+
+            if prev:
+                prev.next = cur.next
+                cur.next = cur.next.next
+                prev.next.next = cur
+            else:
+                head = cur.next
+                cur.next = head.next
+                head.next = cur
+            prev = cur
+            cur = cur.next
+
+
+        return head
+
+    
+    def test_swapPairs(self, head: str, expected: str):
+        actual = self.swapPairs(_build_list(head))
+        actual = _list_str(actual)
+        msg = f"swapPairs({head}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_swapPairs("[1, 2, 3, 4]", "[2, 1, 4, 3]")
+        s.test_swapPairs("[1, 2, 3, 4, 5]", "[2, 1, 4, 3, 5]")
+        s.test_swapPairs("[1]", "[1]")
+
+
+class DivideIntsBinary:
+    def divide(self, dividend: int, divisor: int) -> int:
+        
+        pow = 1
+        pows = [divisor]
+
+        while pows[-1] < dividend:
+            pow += 1
+            pows.append(pow(divisor, pow))
+
+        # result = 0
+        # for i, p in enumerate(len(pows) - 1):
+        #     result += 
+
+        return result       
+
+
+    def testDivideInt(self, dividend: int, divisor: int, expected: int):
+        actual = self.divide(dividend, divisor)
+        msg = f"divide({dividend}, {divisor}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.testDivideInt(11, 3, 3)
+        s.testDivideInt(12, 3, 4)
+        s.testDivideInt(13, 3, 4)
+
+
+class MinJump:
+
+    def jump(self, nums: list[int]) -> int:
+        
+        jumps = 0
+        current = 0
+        furthest = 0
+
+        for i in range(len(nums) - 1):
+            furthest = max(furthest, nums[i] + i)
+            if i == current:
+                jumps += 1
+                current = furthest
+        
+        return jumps
+
+
+    def test_minJumps(self, nums: list[int], expected: int) -> int:
+        actual = self.jump(nums)
+        msg = f"jump({nums}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_minJumps([2,3,1,1,4], 2)
+        s.test_minJumps([3,4,0,3,0,0,0], 2)
+        s.test_minJumps([3,2,1,3,2,1,0], 2)
+
+
+class CanJump:
+
+    def canJump(self, nums: list[int]) -> bool:
+        
+        gas = 0
+        for i, g in enumerate(nums):
+            if g > gas:
+                gas = g
+            if gas <= 0:
+                return i == len(nums) - 1
+            
+            gas -= 1
+
+        return True
+
+
+    def canJump_slow(self, nums: list[int]) -> bool:
+
+        def testJumps(idx: int, cache: set[int]) -> bool:
+
+            if idx + nums[idx] >= len(nums) - 1 or idx >= len(nums) - 1:
+                return True
+
+            if nums[idx] == 0 or idx in cache:
+                return False
+
+            for i in range(1, nums[idx]+1):
+                if testJumps(idx + i, cache):
+                    return True
+                cache.add(idx + i)
+        
+            return False
+        
+        return testJumps(0, set())
+
+
+    def test_canJump(self, nums: list[int], expected: bool):
+        actual = self.canJump(nums)
+        msg = f"canJump({nums}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+        
+        
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_canJump([0], True)
+        s.test_canJump([1,2], True)
+        s.test_canJump([2,3,1,1,4], True)
+        s.test_canJump([3,2,1,0,4], False)
+
+
+class SpiralOrder:
+
+    type Dir = int
+
+    _RIGHT: Dir = 0
+    _DOWN: Dir = 1
+    _LEFT: Dir = 2
+    _UP: Dir = 3
+
+    _NEXT: dict[Dir, Dir] = {
+        _RIGHT: _DOWN,
+        _DOWN: _LEFT,
+        _LEFT: _UP,
+        _UP: _RIGHT,
+    }
+
+    _SENTINEL: int = -9999
+
+    def nextrc(self, r: int, c: int, dir: Solution.Dir) -> tuple[int, int]:
+        
+        if dir == self._RIGHT:
+            return (r, c+1)
+        elif dir == self._DOWN:
+            return (r+1, c)
+        elif dir == self._LEFT:
+            return (r, c-1)
+        elif dir == self._UP:
+            return (r-1, c)
+
+
+    def in_matrix(self, matrix: list[list[int]], r: int, c: int) -> bool:
+        return r >= 0 and r < len(matrix) and c >= 0 and c < len(matrix[0])
+
+
+    def spiralOrder(self, matrix: list[list[int]]) -> list[int]:
+
+        def add_dir(dir: Solution.Dir, r: int, c: int, wip: list[int]):
+
+            if matrix[r][c] == self._SENTINEL:
+                return
+
+            while True:
+                wip.append(matrix[r][c])
+                matrix[r][c] = self._SENTINEL
+                rn, cn = self.nextrc(r, c, dir)
+                if not self.in_matrix(matrix, rn, cn) or matrix[rn][cn] == self._SENTINEL:
+                    break
+                r, c = rn, cn
+
+            r, c = self.nextrc(r, c, self._NEXT[dir])
+            if self.in_matrix(matrix, r, c):
+                add_dir(self._NEXT[dir], r, c, wip)
+
+
+        if not len(matrix) or not len(matrix[0]):
+            return [] 
+
+        wip = []
+        add_dir(self._RIGHT, 0, 0, wip)
+        return wip
+
+
+    def test_spiralOrder(self, matrix: list[list[int]], expected: list[int]):
+        actual = self.spiralOrder(copy.deepcopy(matrix))
+        msg = f"spiralOrder({matrix}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_spiralOrder([[1]], [1])
+        s.test_spiralOrder([[1,2,3,4],[5,6,7,8],[9,10,11,12]], [1,2,3,4,8,12,11,10,9,5,6,7])
+
+
+class LetterCombinations:
+
+    _LETTERS: dict[str,list[str]] = {
+        "2": ["a", "b", "c"],
+        "3": ["d", "e", "f"],
+        "4": ["g", "h", "i"],
+        "5": ["j", "k", "l"],
+        "6": ["m", "n", "o"],
+        "7": ["p", "q", "r", "s"],
+        "8": ["t", "u", "v"],
+        "9": ["w", "x", "y", "z"],        
+    }
+
+    def letterCombinations(self, digits: str) -> list[str]:
+        
+        def add_letters(digits: str, wip: list[str]) -> list[str]:
+            if len(digits) < 1:
+                return wip
+            
+            new_wip = []
+            if len(wip) > 0:
+                for wips in wip:
+                    for l in self._LETTERS[digits[0]]:
+                        new_wip.append(wips + l)
+            else:
+                new_wip = self._LETTERS[digits[0]]
+
+            return add_letters(digits[1:], new_wip)            
+
+        return add_letters(digits, [])
+
+
+    def test_letterCombinations(self, digits: str, expected: list[str]):
+        actual = self.letterCombinations(digits)
+        msg = f"letterCombinations({digits}) = {actual}"
+        print(msg)
+        assert actual == expected, f"Error: {msg}, expected: {expected}"
+
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_letterCombinations("23", ["ad","ae","af","bd","be","bf","cd","ce","cf"])
+        s.test_letterCombinations("678", [])
+
 
 # Definition for a Node.
 @dataclass
