@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 type pt struct {
@@ -107,6 +109,60 @@ func TestClosestXY2D(t *testing.T) {
 				}
 			} else if actual != test.want || err != nil {
 				t.Errorf(`closestXY2D(%s) = %d, %v want %d, nil`, test.name, actual, err, test.want)
+			}
+		})
+	}
+}
+
+func genParens(num int) ([]string, error) {
+	if num < 1 {
+		return nil, fmt.Errorf("wanted num > 0, got %d", num)
+	}
+
+	var result []string
+	var gen func(l int, r int, cur string)
+	gen = func(l int, r int, cur string) {
+		if len(cur) == 2*num {
+			result = append(result, cur)
+			return
+		}
+
+		if l > 0 {
+			gen(l-1, r, cur+"(")
+		}
+		if r > l {
+			gen(l, r-1, cur+")")
+		}
+	}
+	gen(num, num, "")
+
+	return result, nil
+}
+
+func TestGenParens(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   int
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:  "input: 3",
+			input: 3,
+			want:  []string{"((()))", "(()())", "(())()", "()(())", "()()()"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := genParens(test.input)
+			if test.wantErr {
+				if err == nil {
+					t.Errorf("genParens(%s) err == nil, wanted non-nil", test.name)
+				}
+			}
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("genParens(%s) mismatch (-want +got):\n%s", test.name, diff)
 			}
 		})
 	}
