@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build hello_test",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "${workspaceFolder}/cpp/intvw/build"],
+      "problemMatcher": ["$gcc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

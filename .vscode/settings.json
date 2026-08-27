@@ -1,0 +1,6 @@
+{
+  "C_Cpp.default.compileCommands": "cpp/intvw/build/compile_commands.json",
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp/intvw",
+  "cmake.buildDirectory": "${workspaceFolder}/cpp/intvw/build",
+  "debug.onTaskErrors": "showErrors"
+}
