@@ -94,6 +94,77 @@ class ConsistentHash:
 
         print("Success")
         
+        
+        
+class ConsistentHash2:
+    
+    def __init__(self, virtual_nodes: int = 3, hasher: Callable[[str],int] = hash):
+        self.nodes = [] # hosts, sorted by hash value
+        self.virtual_nodes = virtual_nodes
+        self.hasher = hasher
+    
+    def add_node(self, hostname: str):
+        for v in range(self.virtual_nodes):
+            bisect.insort(self.nodes, (self.hasher(f"{hostname}.{v}"), hostname), key=lambda t: t[0])
+        
+    def remove_node(self, hostname: str):
+        
+        for v in range(self.virtual_nodes):
+            host_index = bisect.bisect_left(self.nodes, self.hasher(f"{hostname}.{v}"), key=lambda t: t[0])
+            if self.nodes[host_index][1] != hostname:
+                raise ValueError(f"remove_node({hostname}) expected to find entry for virtual node {v}, but did not")
+            
+            self.nodes.pop(host_index)
+        
+    def get_node(self, id: str) -> str:
+        id_hash = self.hasher(id)
+        id_host = bisect.bisect_left(self.nodes, id_hash, key=lambda t: t[0])
+        if id_host < len(self.nodes):
+            return self.nodes[id_host][1]
+        else:
+            return self.nodes[0][1]
+        
+    @staticmethod
+    def run_tests():
+        stable_hash: Callable[[str], int] = lambda value: {
+                "a.0": 10,
+                "a.1": 50,
+                "a.2": 90,
+                "b.0": 20,
+                "b.1": 60,
+                "b.2": 100,
+                "user:1": 45,
+                "user:2": 20,
+                "user:3": 120,
+            }[value]
+    
+        ch = ConsistentHash2(hasher=stable_hash)
+        ch.add_node("a")
+        ch.add_node("b")
+        assert ch.nodes == [
+            (10, "a"),
+            (20, "b"),
+            (50, "a"),
+            (60, "b"),
+            (90, "a"),
+            (100, "b"),
+        ], f"unexpected ch.nodes structure: {ch.nodes}"
+
+        user1_actual = ch.get_node("user:1")
+        assert user1_actual == "a", f"expected ch.get_node('user:1') = 'a', got {user1_actual}"
+        user2_actual = ch.get_node("user:2")
+        assert user2_actual == "b", f"expected ch.get_node('user:2') = 'b', got {user2_actual}"
+        user3_actual = ch.get_node("user:3")
+        assert user3_actual == "a", f"expected ch.get_node('user:3') = 'a', got {user3_actual}"
+        
+        ch.remove_node("a")
+        assert len(ch.nodes) == 3, f"expected after remove_node('a') for len(ch.nodes) == 3, got {len(ch.nodes)}"
+
+        user1_rm_actual = ch.get_node("user:1")
+        assert user1_rm_actual == "b", f"expected after removing a ch.get_node('user:1') = 'b', got {user1_rm_actual}"
+
+        print("ConsistentHash2.run_tests() - Success")   
+        
 
 def run_lru_tests(make_cache: Callable[[], object]):
     s1 = make_cache()
@@ -949,24 +1020,37 @@ class MergeSortedLists[V]:
         heap = []
         for l in range(len(input)):
             if len(input[l]) > 0:
-                heapq.heappush((input[l][0], l, 0))
-            
+                heapq.heappush(heap, (input[l][0], l, 0))
+                
         result = []
         while heap:
-            pass
+            nextmin, l, i = heapq.heappop(heap)
+            result.append(nextmin)
+            
+            if i < len(input[l]) - 1:
+                heapq.heappush(heap, (input[l][i+1], l, i+1))
         
         return result        
             
     
     @staticmethod
     def run_tests():
-        lists1 = [
-            deque([1, 3, 5]),
-            deque([1, 2, 6]),
-            deque([2, 3, 4]),
+        # lists1 = [
+        #     deque([1, 3, 5]),
+        #     deque([1, 2, 6]),
+        #     deque([2, 3, 4]),
+        # ]
+        # actual, expected = MergeSortedLists.merge_pairwise(lists1), [1, 1, 2, 2, 3, 3, 4, 5, 6]
+        # assert actual == expected, f"merge_pairwise(lists1) = {actual}, expected {expected}"
+        
+        lists2 = [
+            [1, 3, 5],
+            [1, 2, 6, 7],
+            [2, 3, 4],
+            [],
         ]
-        actual, expected = MergeSortedLists.merge_pairwise(lists1), [1, 1, 2, 2, 3, 3, 4, 5, 6]
-        assert actual == expected, f"merge_pairwise(lists1) = {actual}, expected {expected}"
+        actual, expected = MergeSortedLists.merge_heap(lists2), [1, 1, 2, 2, 3, 3, 4, 5, 6, 7]
+        assert actual == expected, f"merge_heap(lists2) = {actual}, expected {expected}"
         
         print("MergeSortedLists run_tests() - SUCCESS")
 
@@ -1373,6 +1457,90 @@ class IslandCounter:
         print("IslandCounter.run_tests() - SUCCESS")
 
 
+class LongestSubsequence:
+    
+    @staticmethod
+    def find_increasing_continuous(seq: list) -> int:
+        dp = [1]
+        cur = 1
+        
+        for i in range(1, len(seq)):
+            
+            if seq[i] > seq[i-1]:
+               cur += 1
+               dp.append(max(dp[i-1], cur))
+            else:
+                cur = 1
+                dp.append(dp[-1])
+                
+        return dp[-1]
+    
+    @staticmethod
+    def run_tests():
+        input = [0, 1, 2, 1, 2, 3, 4, 1]
+        actual, expected = LongestSubsequence.find_increasing_continuous(input), 4
+        assert actual == expected, f"find_increasing_continuous({input}) = {actual}, expected {expected}"
+        
+        print("LongestSubsequence.run_tests() - SUCCESS")
+        
+class ClimbingStairs:
+    
+    @staticmethod
+    def num_ways(num_steps: int) -> int:
+        
+        memo: dict[int,int] = {}
+        
+        def _climb(n: int):
+            if n == 1:
+                return 1
+            if n == 2:
+                return 2
+
+            if n in memo: return memo[n]
+            result = _climb(n-1) + _climb(n-2)
+            memo[n] = result
+            return result
+    
+        return _climb(num_steps)
+    
+    @staticmethod
+    def paths(num_steps: int) -> list[list[int]]:
+        
+        if num_steps < 1:
+            return []
+        
+        memo: dict[int,list[int]] = {2: [[1, 1], [2]], 1: [[1]]}
+        
+        def _climb(n: int) -> list[list[int]]:
+            
+            if n in memo: return memo[n]
+            elif n == 1:
+                return [[1]]
+            elif n == 2:
+                return [[1, 1], [2]]
+            
+            result = [[1] + suff for suff in _climb(n-1)] + \
+                     [[2] + suff for suff in _climb(n-2)]
+            memo[n] = result
+            return result
+    
+        return _climb(num_steps)
+    
+    
+    @staticmethod
+    def run_tests():
+        actual, expected = ClimbingStairs.num_ways(4), 5
+        assert actual == expected, f"ClimbingStairs.num_ways(4) = {actual}, expected {expected}"
+        actual, expected = ClimbingStairs.num_ways(5), 8
+        assert actual == expected, f"ClimbingStairs.num_ways(5) = {actual}, expected {expected}"
+
+        actual = ClimbingStairs.paths(4)
+        expected = [[1, 1, 1, 1], [1, 1, 2], [1, 2, 1], [2, 1, 1], [2, 2]]
+        assert actual == expected, f"ClimbingStairs.paths(4) = {actual}, expected {expected}"
+        
+        print("ClimbingStairs.run_tests() - SUCCESS")
+
+
 def main():
     # LruCache.run_tests()
     # LruCacheOrderedDict.run_tests()
@@ -1385,7 +1553,7 @@ def main():
     
     # LfuCache.run_tests()
     # asyncio.run(TokenBucketLimiter.run_tests())
-    MergeSortedLists.run_tests()
+    # MergeSortedLists.run_tests()
     # PowerSubsets.run_tests()
     # MinCoins.run_tests()
     # Sorting.run_tests()
@@ -1395,6 +1563,9 @@ def main():
     # GenerateParens.run_tests()
     # AsyncFanOutIn.run_tests()
     # IslandCounter.run_tests()
+    # LongestSubsequence.run_tests()
+    # ConsistentHash2.run_tests()
+    ClimbingStairs.run_tests()
 
 if __name__ == "__main__":
     main()
