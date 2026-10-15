@@ -1,7 +1,7 @@
 import copy
 from builtins import *
 from dataclasses import dataclass, field
-from bisect import bisect_left
+import bisect
 import heapq
 
 INF: int = float('inf')
@@ -1055,8 +1055,119 @@ class LongestSubstring:
         s.test_longestSubstring("pwwke", 3)
         s.test_longestSubstring("dvdf", 3)
 
+class RemoveDuplicatesInSorted:
+    """
+    https://leetcode.com/problems/remove-duplicates-from-sorted-array/description/
+    """
+
+    def removeDuplicates(self, nums: list[int]) -> int:
+        if len(nums) < 2:
+            return len(nums)
+
+        i = 1
+        while i < len(nums):
+            if nums[i] == nums[i-1]:
+                nums.pop(i)
+            else:
+                i += 1
+        return len(nums)
+    
+    def test_removeDuplicates(self, input: list[int], updated: list[int], expected: int):
+        oinput = input.copy()
+        actual = self.removeDuplicates(input)
+        assert actual == expected, f"removeDuplicates({oinput}) = {actual}, expected {expected}"
+        assert input == updated, f"removeDuplicates({oinput}) input: {input}, expected {updated}"
+        
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_removeDuplicates([1,2,2], [1,2], 2)
+        s.test_removeDuplicates([0,0,1,1,1,2,2,3,3,4], [1,2,3,4], 5)
+
+        
+class FirstListPosition:
+    """https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/
+    """
+    def searchRange(self, nums: list[int], target: int) -> list[int]:
+        i = bisect.bisect_left(nums, target)
+        if i >= len(nums) or nums[i] != target:
+            return [-1, -1]
+        j = bisect.bisect_right(nums, target)
+        return [i,j-1]
+    
+    def test_searchRange(self, nums: list[int], target: int, expected: list[int]):
+        actual = self.searchRange(nums, target)
+        assert actual == expected, f"searchRange({nums}, {target}) = {actual}, expected {expected}"
+        
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_searchRange([5,7,7,8,8,10], 8, [3,4])
+        s.test_searchRange([5,7,7,8,8,10], 6, [-1,-1])
+        
+class Levenshtein:
+    """https://leetcode.com/problems/edit-distance/description/
+    """
+    
+    def minDistance(self, word1: str, word2: str) -> int:
+        dp = [[0 for _ in range(len(word2)+1)] for _ in range(len(word1)+1)]
+        
+        for i in range(1,len(word1)+1): dp[i][0] = i
+        for j in range(1,len(word2)+1): dp[0][j] = j
+        
+        for i in range(1,len(word1)+1):
+            for j in range(1,len(word2)+1):
+                if word1[i-1] == word2[j-1]:
+                    cost = 0
+                else:
+                    cost = 1
+                    
+                dp[i][j] = min(
+                    min(dp[i-1][j] + 1, dp[i][j-1] + 1),
+                    dp[i-1][j-1] + cost
+                )
+        return dp[len(word1)][len(word2)]
+    
+
+    def test_minDistance(self, word1: str, word2: str, expected: int):
+        actual = self.minDistance(word1, word2)
+        assert actual == expected, f"minDistance({word1}, {word2}) = {actual}, expected {expected}"
+        
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_minDistance("horse", "ros", 3)
+        s.test_minDistance("intention", "execution", 5)
+        
+class Solution:
+    
+    def find(self, input: str) -> list[list[int]]:
+        curs = []
+        for i, l in enumerate(input):
+            for c in range(len(curs)):
+                if curs[c][1] != i-1:
+                    continue
+                pindex = i - (curs[c][1] - curs[c][0] + 2)
+                if pindex >= 0 and input[pindex] == l:
+                    curs[c] = [curs[c][0]-1, i]
+            
+            if i > 1 and input[i] == input[i-2]:
+                curs.append([i-2,i])
+            elif i > 0 and input[i] == input[i-1]:
+                curs.append([i-1,i])
+        return curs
+    
+    def test_findPalindromes(self, input: str, expected: list[list[int]]):
+        actual = self.find(input)
+        assert actual == expected, f"find_palindromes({input}) = {actual}, expected {expected}"        
+
+    @classmethod
+    def run_tests(cls):
+        s = cls()
+        s.test_findPalindromes("baabcbaedccdf", [[0,3],[2,6],[8,11]])
 
 def main():
+    
     Solution.run_tests()
 
 if __name__ == "__main__":
