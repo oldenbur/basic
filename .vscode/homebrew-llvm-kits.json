@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Homebrew LLVM",
+    "compilers": {
+      "C": "/opt/homebrew/opt/llvm/bin/clang",
+      "CXX": "/opt/homebrew/opt/llvm/bin/clang++"
+    }
+  }
+]

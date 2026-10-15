@@ -1,5 +1,16 @@
 {
-    "chat.tools.terminal.autoApprove": {
-        ".venv/bin/python": true
-    }
+  "chat.tools.terminal.autoApprove": {
+    ".venv/bin/python": true
+  },
+  "C_Cpp.default.compileCommands": "cpp/intvw/build-llvm/compile_commands.json",
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp/intvw",
+  "cmake.buildDirectory": "${workspaceFolder}/cpp/intvw/build-llvm",
+  "cmake.additionalKits": [
+    "${workspaceFolder}/.vscode/homebrew-llvm-kits.json"
+  ],
+  "cmake.configureSettings": {
+    "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+    "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++"
+  },
+  "debug.onTaskErrors": "showErrors"
 }
