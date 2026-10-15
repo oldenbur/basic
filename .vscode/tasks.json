@@ -5,7 +5,7 @@
       "label": "build hello_test",
       "type": "shell",
       "command": "cmake",
-      "args": ["--build", "${workspaceFolder}/cpp/intvw/build"],
+      "args": ["--build", "${workspaceFolder}/cpp/intvw/build-llvm"],
       "problemMatcher": ["$gcc"],
       "group": {
         "kind": "build",

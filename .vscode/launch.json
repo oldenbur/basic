@@ -5,9 +5,9 @@
       "name": "Debug hello_test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/cpp/intvw/build/tests/hello_test",
+      "program": "${workspaceFolder}/cpp/intvw/build-llvm/tests/hello_test",
       "args": [],
-      "cwd": "${workspaceFolder}/cpp/intvw/build",
+      "cwd": "${workspaceFolder}/cpp/intvw/build-llvm",
       "preLaunchTask": "build hello_test"
     }
   ]

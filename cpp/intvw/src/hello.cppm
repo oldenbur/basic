@@ -15,7 +15,7 @@ std::string hello_world() {
     return "Hello World";
 }
 
-int closestXY2D(std::string input) {
+int closestXY1D(std::string input) {
 
     int lastX = -1, lastY = -1;
     int mindist = std::numeric_limits<int>::max();

@@ -7,9 +7,9 @@ TEST(HelloTest, ReturnsHelloWorld) {
 }
 
 TEST(ClosestXY2DTest, MultipleXsYs) {
-    EXPECT_EQ(intvw::closestXY2D("OXOOYOXOOY"), 2);
-    EXPECT_EQ(intvw::closestXY2D("OXOOYOXXOY"), 2);
-    EXPECT_EQ(intvw::closestXY2D("OXOOYYOXXOOY"), 2);
+    EXPECT_EQ(intvw::closestXY1D("OXOOYOXOOY"), 2);
+    EXPECT_EQ(intvw::closestXY1D("OXOOYOXXOY"), 2);
+    EXPECT_EQ(intvw::closestXY1D("OXOOYYOXXOOY"), 2);
 }
 
 TEST(DemoRobotTest, StandardMaze) {

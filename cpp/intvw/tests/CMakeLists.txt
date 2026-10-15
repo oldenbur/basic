@@ -10,5 +10,9 @@ FetchContent_MakeAvailable(googletest)
 add_executable(hello_test hello_test.cpp)
 target_link_libraries(hello_test PRIVATE intvw GTest::gtest_main)
 
+add_executable(practice_test practice_test.cpp)
+target_link_libraries(practice_test PRIVATE intvw GTest::gtest_main)
+
 include(GoogleTest)
 gtest_discover_tests(hello_test)
+gtest_discover_tests(practice_test)

@@ -15,6 +15,17 @@ target_sources(intvw
   PUBLIC
     FILE_SET CXX_MODULES FILES
       src/hello.cppm
+  PRIVATE
+    src/practice.cpp
+  PUBLIC
+    FILE_SET HEADERS
+      BASE_DIRS src
+      FILES src/practice.h
+)
+
+target_include_directories(intvw
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 enable_testing()
