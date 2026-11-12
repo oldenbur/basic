@@ -3,8 +3,10 @@ import { api } from "../api";
 
 const ROWS: [string, string][] = [
   ["folders", "Folders"],
-  ["folders_with_issues", "Folders with naming issues"],
+  ["folders_with_issues", "Folders with naming warnings"],
+  ["folders_ignored", "Folders ignored (don't follow the naming scheme)"],
   ["photos", "Photos indexed"],
+  ["photos_ignored", "Photos in ignored folders"],
   ["highlight_copies", "Highlight copies"],
   ["highlights_linked", "…linked to their original"],
   ["highlights_unmatched", "…with no original (processed on their own)"],
@@ -13,7 +15,7 @@ const ROWS: [string, string][] = [
   ["meta_done", "EXIF read"],
   ["thumbs_done", "Thumbnails stored"],
   ["burst_groups", "Burst groups"],
-  ["date_mismatches", "Photos >1 day from their event date"],
+  ["date_mismatches", "Photos >30 days from their folder date"],
   ["meta_errors", "EXIF errors"],
   ["thumb_errors", "Thumbnail errors"],
 ];

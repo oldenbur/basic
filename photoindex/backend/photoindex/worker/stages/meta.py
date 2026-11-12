@@ -45,7 +45,7 @@ def run(session: Session, source: PhotoSource, head_bytes: int, workers: int) ->
 
 def _date_mismatch(session: Session) -> None:
     session.execute(text("""
-        UPDATE photos ph SET date_mismatch_days = abs(ph.taken_at::date - ev.event_date)
+        UPDATE photos ph SET date_mismatch_days = ph.taken_at::date - ev.event_date  -- signed: negative = before the event
         FROM folders f JOIN folders ev ON ev.id = f.event_folder_id
         WHERE f.id = ph.folder_id AND ph.taken_at IS NOT NULL AND ev.event_date IS NOT NULL
     """))

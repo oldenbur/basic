@@ -63,3 +63,14 @@ def test_group_bursts():
         Shot(6, None, "X100", 7),                        # no timestamp
     ]
     assert group_bursts(shots) == {1: 1, 2: 1, 3: 1}
+
+
+def test_identical_originals_filed_twice_pick_the_proper_event():
+    from photoindex.linking import Candidate, match_highlights
+
+    dup = Candidate(1, "P1.JPG", 2010, "h1", rank=(True, False, False, "b"))  # nested copy
+    real = Candidate(2, "P1.JPG", 2010, "h1", rank=(False, False, False, "a"))
+    hl = Candidate(9, "P1.JPG", 2010, "re-exported")
+    assert match_highlights([hl], [dup, real])[9].original_id == 2
+    hl_exact = Candidate(10, "P1.JPG", 2010, "h1")
+    assert match_highlights([hl_exact], [dup, real])[10].original_id == 2

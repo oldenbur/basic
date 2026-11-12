@@ -1,6 +1,8 @@
-export type Counts = { photos: number; processing: number; thumbs: number; highlights: number; issues: number };
+export type Counts = {
+  photos: number; processing: number; thumbs: number; highlights: number; linked: number; ignored: number; issues: number;
+};
 
-export type Issue = { code: string; severity: "error" | "warning"; message: string };
+export type Issue = { code: string; severity: "warning" | "ignored"; message: string };
 
 export type Folder = {
   id: number;
@@ -11,6 +13,7 @@ export type Folder = {
   event_date: string | null;
   state: string | null;
   event_name: string | null;
+  abroad: boolean;
   parse_ok: boolean | null;
   issues: Issue[];
   suggested_name: string | null;

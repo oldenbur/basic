@@ -78,10 +78,23 @@ def _convert(e) -> Entry | None:
     return None
 
 
-def run_auth_flow(app_key: str, app_secret: str) -> str:
-    """Interactive one-time OAuth flow; returns a long-lived refresh token."""
-    flow = dropbox.DropboxOAuth2FlowNoRedirect(app_key, app_secret, token_access_type="offline")
-    print("1. Open:", flow.start())
-    print("2. Click Allow, then copy the authorization code.")
-    code = input("3. Paste the code here: ").strip()
-    return flow.finish(code).refresh_token
+def auth_url(app_key: str, app_secret: str) -> str:
+    return _flow(app_key, app_secret).start()
+
+
+def finish_auth(app_key: str, app_secret: str, code: str) -> str:
+    """Exchange a one-time authorization code for a long-lived refresh token."""
+    return _flow(app_key, app_secret).finish(code.strip()).refresh_token
+
+
+def _flow(app_key: str, app_secret: str) -> dropbox.DropboxOAuth2FlowNoRedirect:
+    # No PKCE: the app secret authenticates the exchange, so start() and finish() can run in separate processes.
+    return dropbox.DropboxOAuth2FlowNoRedirect(app_key, app_secret, token_access_type="offline")
+
+
+def describe(source: "DropboxSource") -> dict:
+    """Account name plus the folders directly under the configured root, to confirm PHOTO_ROOT."""
+    acct = source.dbx.users_get_current_account()
+    res = source.dbx.files_list_folder(source.root)
+    names = sorted(e.name for e in res.entries if isinstance(e, files.FolderMetadata))
+    return {"account": acct.name.display_name, "root": source.root or "/", "folders": names}

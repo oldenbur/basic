@@ -2,6 +2,7 @@
 
 import logging
 from collections import Counter
+from pathlib import PurePosixPath
 
 from sqlalchemy import case, text
 from sqlalchemy.dialects.postgresql import insert
@@ -42,6 +43,9 @@ def run(session: Session, source: PhotoSource) -> Counter:
         _upsert_folders(session, folders)
         _upsert_photos(session, images)
         stats.update(deleted=len(deleted), folders=len(folders), images=len(images))
+        # Not indexed yet, but counted so we know how many videos / RAW files the library holds.
+        stats.update("skipped" + (PurePosixPath(e.path_lower).suffix or " (none)")
+                     for e in entries if isinstance(e, FileEntry) and not is_image(e.path_lower))
 
         state = session.merge(SyncState(key=CURSOR_KEY, cursor=cursor))
         session.commit()

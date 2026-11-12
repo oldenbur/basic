@@ -36,24 +36,30 @@ def make_jpeg(path: Path, taken: datetime | None, color=(200, 80, 40), model="X1
 
 def build_library(root: Path) -> Path:
     """A tiny library exercising every linking/parsing path. Also used to seed a dev database."""
-    july = root / "2015" / "150704.CO.fourth of july"
+    july = root / "2015.album" / "150704.CO.fourth of july"
     make_jpeg(july / "IMG_0001.JPG", datetime(2015, 7, 4, 10, 0, 0), gps=(39.5, -105.5))
     make_jpeg(july / "IMG_0002.JPG", datetime(2015, 7, 4, 10, 5, 0), (10, 200, 10))
     make_jpeg(july / "IMG_0003.JPG", datetime(2015, 7, 4, 10, 5, 1), (10, 10, 200))  # burst with 0002
-    make_jpeg(july / "IMG_0004.JPG", datetime(2015, 7, 9, 9, 0, 0), (90, 90, 90))  # 5 days off the event date
-    alta = root / "2015" / "150801.ut.alta"
+    make_jpeg(july / "IMG_0004.JPG", datetime(2015, 9, 9, 9, 0, 0), (90, 90, 90))  # 67 days off the event date
+    alta = root / "2015.album" / "150801.ut.alta"
     make_jpeg(alta / "IMG_0001.JPG", datetime(2015, 8, 1, 8, 0, 0), (250, 250, 250))  # counter collision
 
-    hl = root / "2015" / "Highlights"
+    hl = root / "2015.album" / "15.highlights"
     hl.mkdir(parents=True, exist_ok=True)
     shutil.copy(july / "IMG_0003.JPG", hl / "IMG_0003.JPG")
     # Re-exported copy of the *alta* IMG_0001: different bytes, same EXIF time.
     make_jpeg(hl / "IMG_0001-edited.jpg", datetime(2015, 8, 1, 8, 0, 0), (240, 240, 240))
     make_jpeg(hl / "pano.jpg", datetime(2015, 7, 20, 12, 0, 0), (0, 120, 120))  # no original anywhere
+    # A conflicted copy of the July event: ignored, so the highlight never links into it.
+    conflict = root / "2015.album" / "150704.CO.fourth of july (Paul's conflicted copy 2026-01-30)"
+    conflict.mkdir(parents=True, exist_ok=True)
+    shutil.copy(july / "IMG_0003.JPG", conflict / "IMG_0003.JPG")
 
-    make_jpeg(root / "2016" / "160101_CA_new year" / "IMG_9000.JPG", datetime(2016, 1, 1, 0, 1, 0))
+    make_jpeg(root / "2016.album" / "160320.Oslo" / "IMG_8000.JPG", datetime(2016, 3, 20, 12, 0, 0))  # abroad
+    make_jpeg(root / "2016.album" / "160101_CA_new year" / "IMG_9000.JPG", datetime(2016, 1, 1, 0, 1, 0))
+    make_jpeg(root / "2014" / "IMG_7000.JPG", datetime(2014, 1, 1, 0, 1, 0))  # year without .album
     make_jpeg(root / "Old Scans" / "scan1.jpg", None, (120, 60, 0))
-    (root / "2016" / "notes.txt").write_text("not a photo")
+    (root / "2016.album" / "notes.txt").write_text("not a photo")
     return root
 
 

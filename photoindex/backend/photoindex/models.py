@@ -50,6 +50,8 @@ class Photo(Base):
     size: Mapped[int | None] = mapped_column(BigInteger)
     client_modified: Mapped[datetime | None] = mapped_column(DateTime)
     deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # In a folder that doesn't follow the naming scheme: kept in the index but never linked or processed.
+    ignored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     # Highlights: a copy in a highlights folder points at the canonical original it duplicates.
     is_highlight_copy: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

@@ -22,6 +22,7 @@ class Candidate:
     content_hash: str | None = None
     taken_at: datetime | None = None
     camera_model: str | None = None
+    rank: tuple = ()  # lower = better home for the canonical copy when the same photo exists in several folders
 
 
 @dataclass
@@ -34,7 +35,7 @@ class LinkResult:
 def match_highlights(highlights: list[Candidate], originals: list[Candidate]) -> dict[int, LinkResult]:
     by_hash: dict[str, list[Candidate]] = defaultdict(list)
     by_stem: dict[tuple[int | None, str], list[Candidate]] = defaultdict(list)
-    for o in originals:
+    for o in sorted(originals, key=lambda c: c.rank):
         if o.content_hash:
             by_hash[o.content_hash].append(o)
         by_stem[(o.year, normalize_stem(o.name))].append(o)
@@ -44,13 +45,26 @@ def match_highlights(highlights: list[Candidate], originals: list[Candidate]) ->
         if h.content_hash and by_hash.get(h.content_hash):
             out[h.id] = LinkResult(by_hash[h.content_hash][0].id, "hash")
             continue
-        cands = by_stem.get((h.year, normalize_stem(h.name)), [])
+        cands = _distinct(by_stem.get((h.year, normalize_stem(h.name)), []))
         if len(cands) == 1:
             out[h.id] = LinkResult(cands[0].id, "stem")
         elif not cands:
             out[h.id] = LinkResult(None, "none")
         else:
             out[h.id] = _resolve_by_time(h, cands)
+    return out
+
+
+def _distinct(cands: list[Candidate]) -> list[Candidate]:
+    """Byte-identical candidates are one photo filed twice; keep the best-ranked (cands are already rank-sorted)."""
+    seen: set[str] = set()
+    out = []
+    for c in cands:
+        if c.content_hash and c.content_hash in seen:
+            continue
+        if c.content_hash:
+            seen.add(c.content_hash)
+        out.append(c)
     return out
 
 

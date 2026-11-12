@@ -4,26 +4,39 @@ import { Link, useParams } from "react-router-dom";
 import { api, Folder, Photo } from "../api";
 
 const KIND_LABEL: Record<string, string> = {
-  year: "Year", event: "Event", highlights: "Highlights", event_sub: "Subfolder", highlights_sub: "Highlights", other: "Other",
+  year: "Year", event: "Event", highlights: "Highlights", event_sub: "Subfolder", highlights_sub: "Highlights",
 };
 
+const isHighlights = (f: Folder) => f.kind === "highlights" || f.kind === "highlights_sub";
+
+function CountsLine({ f, long }: { f: Folder; long?: boolean }) {
+  const c = f.counts;
+  if (isHighlights(f)) {
+    // A copy isn't processed itself (its original is), so "in set" means nothing here.
+    const unmatched = c.highlights - c.linked;
+    return <>{c.highlights.toLocaleString()} copies · {c.linked.toLocaleString()} linked to originals
+      {unmatched > 0 && <> · {unmatched.toLocaleString()} without one</>}</>;
+  }
+  return <>{c.photos.toLocaleString()} photos
+    {(long || c.processing > 0) && <> · {c.processing.toLocaleString()} in {long ? "processing " : ""}set</>}</>;
+}
+
 function FolderCard({ f }: { f: Folder }) {
-  const hasErrors = f.issues.some((i) => i.severity === "error");
   return (
     <Link to={`/folders/${f.id}`} className={`folder-card kind-${f.kind ?? "other"}`}>
       <div className="folder-name">{f.name}</div>
       <div className="folder-meta">
         <span className="pill">{KIND_LABEL[f.kind ?? "other"] ?? f.kind}</span>
         {f.state && <span className="pill">{f.state}</span>}
+        {f.abroad && <span className="pill">abroad</span>}
         {f.issues.length > 0 && (
-          <span className={`pill ${hasErrors ? "pill-error" : "pill-warn"}`} title={f.issues.map((i) => i.message).join("\n")}>
+          <span className="pill pill-warn" title={f.issues.map((i) => i.message).join("\n")}>
             {f.issues.length} issue{f.issues.length > 1 ? "s" : ""}
           </span>
         )}
       </div>
       <div className="folder-counts">
-        {f.counts.photos.toLocaleString()} photos
-        {f.counts.processing > 0 && <> · {f.counts.processing.toLocaleString()} in set</>}
+        <CountsLine f={f} />
       </div>
     </Link>
   );
@@ -52,8 +65,10 @@ function Lightbox({ photos, index, onClose, onMove }: {
           {p.taken_at && <span>{new Date(p.taken_at).toLocaleString()}</span>}
           {p.camera && <span>{p.camera}</span>}
           {p.lat != null && <span>{p.lat.toFixed(3)}, {p.lon?.toFixed(3)}</span>}
-          {p.date_mismatch_days != null && p.date_mismatch_days > 1 && (
-            <span className="pill pill-warn">{p.date_mismatch_days} days from event date</span>
+          {p.date_mismatch_days != null && Math.abs(p.date_mismatch_days) > 30 && (
+            <span className="pill pill-warn">
+              {Math.abs(p.date_mismatch_days)} days {p.date_mismatch_days < 0 ? "before" : "after"} event date
+            </span>
           )}
           <a href={api.originalUrl(p.id)} target="_blank" rel="noreferrer">Open original</a>
         </figcaption>
@@ -121,15 +136,16 @@ function FolderView({ id }: { id: number }) {
           <p className="muted">
             {folder.event_date && <>{new Date(folder.event_date + "T00:00").toLocaleDateString()} · </>}
             {folder.state && <>{folder.state} · </>}
-            {folder.counts.photos.toLocaleString()} photos · {folder.counts.processing.toLocaleString()} in processing set
+            {folder.abroad && <>outside the US · </>}
+            <CountsLine f={folder} long />
           </p>
           {folder.issues.map((i) => (
-            <p key={i.code} className={i.severity === "error" ? "error" : "warn"}>
+            <p key={i.code} className="warn">
               {i.message}{folder.suggested_name && <> — suggested: <code>{folder.suggested_name}</code></>}
             </p>
           ))}
         </div>
-        {folder.kind !== "highlights" && folder.kind !== "highlights_sub" && (
+        {!isHighlights(folder) && (
           <label className="scope-toggle" title="Process every photo in this folder (thumbnails, faces, AI tags), not just highlights">
             <input type="checkbox" checked={folder.in_scope} disabled={scope.isPending}
               onChange={(e) => scope.mutate(e.target.checked)} />

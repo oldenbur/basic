@@ -1,21 +1,25 @@
-"""Classify library folders and validate the yyMMDD.[state].[event] naming convention.
+"""Classify library folders and validate the naming convention.
 
 Layout under the photo root:
-    YYYY/                       year folder
-    YYYY/yyMMDD.ST.event/       event folder (yy must match YYYY)
-    YYYY/highlights/            copies of the year's best photos
-    yyMMDD.ST.event/            event folder directly under the root (single-level years)
-Anything deeper inherits from its event or highlights ancestor.
+    YYYY.album/                     year folder; any other top-level folder is ignored
+    YYYY.album/yyMMDD.ST.event/     event in the US (yy must match YYYY)
+    YYYY.album/yyMMDD.place/        event outside the US, named for the city or location
+    YYYY.album/yy.highlights/       copies of the year's best photos (plain "highlights" also accepted)
+Any other folder inside a year is ignored, along with everything below it. Folders inside an event or
+highlights folder inherit from it.
 """
 
 import re
 from dataclasses import dataclass, field
 from datetime import date
 
+YEAR_RE = re.compile(r"^(?P<year>\d{4})\.album$")
 EVENT_RE = re.compile(r"^(?P<date>\d{6})\.(?P<state>[A-Za-z]{2})\.(?P<event>\S.*)$")
-YEAR_RE = re.compile(r"^(19|20)\d{2}$")
-HIGHLIGHTS_RE = re.compile(r"^highlights?$", re.IGNORECASE)
-# Loose shape used to suggest a fix: 6- or 8-digit date, any separators, optional state.
+ABROAD_RE = re.compile(r"^(?P<date>\d{6})\.(?P<place>\S.*)$")
+HIGHLIGHTS_RE = re.compile(r"^(?:(?P<yy>\d{2})\.)?highlights?$", re.IGNORECASE)
+# Dropbox sync conflicts: "name (Paul Oldenburg's conflicted copy 2026-01-30)".
+CONFLICT_RE = re.compile(r"\([^()]*conflicted copy[^()]*\)\s*$", re.IGNORECASE)
+# Loose shape, used only to suggest a compliant name for an ignored folder: 6- or 8-digit date, any separators.
 LOOSE_RE = re.compile(r"^(?P<date>\d{8}|\d{6})[._\-\s]+(?:(?P<state>[A-Za-z]{2})[._\-\s]+)?(?P<event>\S.*)$")
 
 US_STATES = frozenset(
@@ -27,7 +31,7 @@ US_STATES = frozenset(
 @dataclass
 class Issue:
     code: str
-    severity: str  # error | warning
+    severity: str  # warning | ignored
     message: str
 
     def as_dict(self) -> dict:
@@ -36,67 +40,67 @@ class Issue:
 
 @dataclass
 class FolderParse:
-    kind: str
+    kind: str  # year | event | event_sub | highlights | highlights_sub | ignored
     year: int | None = None
     event_date: date | None = None
-    state: str | None = None
+    state: str | None = None  # None on an event = outside the US; event_name is then the place
     event_name: str | None = None
     issues: list[Issue] = field(default_factory=list)
     suggested_name: str | None = None
 
     @property
     def ok(self) -> bool:
-        return not any(i.severity == "error" for i in self.issues)
+        return self.kind != "ignored"
+
+    @property
+    def abroad(self) -> bool:
+        return self.kind in ("event", "event_sub") and self.state is None
 
 
-def _expand_year(yy: int, century_hint: int | None) -> int:
-    if century_hint is not None:
-        return century_hint - century_hint % 100 + yy
-    return 2000 + yy if yy <= date.today().year % 100 else 1900 + yy
+def _ignored(reason: str, year: int | None = None, suggested: str | None = None) -> FolderParse:
+    return FolderParse(kind="ignored", year=year, issues=[Issue("ignored", "ignored", reason)],
+                       suggested_name=suggested)
 
 
-def _parse_date(digits: str, year_hint: int | None) -> date | None:
+def _parse_date(digits: str, year: int | None) -> date | None:
     try:
         if len(digits) == 8:
             return date(int(digits[:4]), int(digits[4:6]), int(digits[6:]))
-        return date(_expand_year(int(digits[:2]), year_hint), int(digits[2:4]), int(digits[4:]))
+        century = (year - year % 100) if year else 2000
+        return date(century + int(digits[:2]), int(digits[2:4]), int(digits[4:]))
     except ValueError:
         return None
 
 
-def parse_event_name(name: str, year_hint: int | None = None) -> FolderParse | None:
-    """Parse a folder name as an event. Returns None if it doesn't resemble an event at all."""
+def _suggest(name: str, year: int | None) -> str | None:
+    """A compliant spelling of a near-miss like '160101_CA_new year', if there is one."""
+    m = LOOSE_RE.match(name)
+    if not m or not m["state"] or m["state"].upper() not in US_STATES:
+        return None
+    d = _parse_date(m["date"], year)
+    return f"{d:%y%m%d}.{m['state'].upper()}.{m['event'].strip()}" if d else None
+
+
+def parse_event_name(name: str, year: int | None) -> FolderParse:
+    """Parse a folder directly inside a year folder as an event; anything non-compliant is ignored."""
     m = EVENT_RE.match(name)
     if m:
-        p = FolderParse(kind="event", state=m["state"].upper(), event_name=m["event"].strip())
-        p.event_date = _parse_date(m["date"], year_hint)
-        if p.event_date is None:
-            p.issues.append(Issue("bad_date", "error", f"'{m['date']}' is not a valid yyMMDD date"))
+        p = FolderParse(kind="event", year=year, state=m["state"].upper(), event_name=m["event"].strip())
         if m["state"] != m["state"].upper():
             p.issues.append(Issue("state_case", "warning", "state code should be upper case"))
             p.suggested_name = f"{m['date']}.{p.state}.{p.event_name}"
         if p.state not in US_STATES:
             p.issues.append(Issue("unknown_state", "warning", f"'{p.state}' is not a US state code"))
-        p.year = p.event_date.year if p.event_date else year_hint
-        return p
+    elif m := ABROAD_RE.match(name):
+        p = FolderParse(kind="event", year=year, event_name=m["place"].strip())
+    else:
+        return _ignored("doesn't match yyMMDD.ST.event or yyMMDD.place", year, _suggest(name, year))
 
-    m = LOOSE_RE.match(name)
-    if not m:
-        return None
-    p = FolderParse(kind="event", event_name=m["event"].strip())
-    p.event_date = _parse_date(m["date"], year_hint)
-    p.year = p.event_date.year if p.event_date else year_hint
+    p.event_date = _parse_date(m["date"], year)
     if p.event_date is None:
-        p.issues.append(Issue("bad_date", "error", f"'{m['date']}' is not a valid date"))
-    if not m["state"] or m["state"].upper() not in US_STATES:
-        # A loose two-letter word ("my trip") is part of the event name, not a state.
-        p.event_name = name[len(m["date"]):].lstrip("._- ").strip()
-        p.issues.append(Issue("missing_state", "error", "name has no state code"))
-        return p
-    p.state = m["state"].upper()
-    p.issues.append(Issue("format", "error", "expected yyMMDD.ST.event with '.' separators"))
-    if p.event_date:
-        p.suggested_name = f"{p.event_date:%y%m%d}.{p.state}.{p.event_name}"
+        return _ignored(f"'{m['date']}' is not a valid yyMMDD date", year)
+    if year and p.event_date.year != year:
+        p.issues.append(Issue("year_mismatch", "warning", f"event date {p.event_date} is outside {year}.album"))
     return p
 
 
@@ -106,37 +110,28 @@ def classify(rel_parts: tuple[str, ...], parent: FolderParse | None = None) -> F
     `parent` is the already-computed parse of the parent folder (None for depth 1).
     """
     name = rel_parts[-1]
-    depth = len(rel_parts)
-
-    if depth == 1:
-        if YEAR_RE.match(name):
-            return FolderParse(kind="year", year=int(name))
-        ev = parse_event_name(name)
-        if ev:
-            return ev
-        return FolderParse(
-            kind="other", issues=[Issue("unrecognized", "error", "top-level folder is neither a year nor an event")]
-        )
+    if len(rel_parts) == 1:
+        m = YEAR_RE.match(name)
+        return FolderParse(kind="year", year=int(m["year"])) if m else _ignored("top-level folder isn't YYYY.album")
 
     assert parent is not None
+    if parent.kind == "ignored":
+        return FolderParse(kind="ignored", year=parent.year)  # reason is recorded once, on the ancestor
+    if CONFLICT_RE.search(name):
+        return _ignored("Dropbox conflicted copy; its photos duplicate the original folder", parent.year)
     if parent.kind in ("event", "event_sub"):
-        return FolderParse(kind="event_sub", year=parent.year, state=parent.state, event_name=parent.event_name,
-                           event_date=parent.event_date)
+        p = FolderParse(kind="event_sub", year=parent.year, state=parent.state, event_name=parent.event_name,
+                        event_date=parent.event_date)
+        if EVENT_RE.match(name):
+            p.issues.append(Issue("nested_event", "warning", "event folder filed inside another event"))
+        return p
     if parent.kind in ("highlights", "highlights_sub"):
         return FolderParse(kind="highlights_sub", year=parent.year)
-    if parent.kind != "year":
-        return FolderParse(kind="other", year=parent.year)
 
-    if HIGHLIGHTS_RE.match(name):
-        return FolderParse(kind="highlights", year=parent.year)
-    ev = parse_event_name(name, year_hint=parent.year)
-    if ev is None:
-        return FolderParse(
-            kind="other", year=parent.year,
-            issues=[Issue("unrecognized", "error", "folder name doesn't match yyMMDD.ST.event")],
-        )
-    if ev.event_date and ev.event_date.year != parent.year:
-        ev.issues.append(
-            Issue("year_mismatch", "warning", f"event date {ev.event_date} is outside year folder {parent.year}")
-        )
-    return ev
+    # parent is a year folder
+    if m := HIGHLIGHTS_RE.match(name):
+        p = FolderParse(kind="highlights", year=parent.year)
+        if m["yy"] and int(m["yy"]) != parent.year % 100:
+            p.issues.append(Issue("year_mismatch", "warning", f"'{name}' is inside {parent.year}.album"))
+        return p
+    return parse_event_name(name, parent.year)

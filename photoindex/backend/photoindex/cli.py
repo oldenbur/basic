@@ -7,7 +7,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog="photoindex")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("migrate", help="apply database migrations")
-    sub.add_parser("dropbox-auth", help="one-time OAuth flow; prints DROPBOX_REFRESH_TOKEN")
+    au = sub.add_parser("dropbox-auth", help="one-time OAuth flow: run once for a URL, then again with the code")
+    au.add_argument("code", nargs="?", help="authorization code from the Dropbox approval page")
+    sub.add_parser("dropbox-check", help="confirm Dropbox access and list the folders under PHOTO_ROOT")
     st = sub.add_parser("stage", help="run one pipeline stage")
     st.add_argument("name", choices=("sync", "parse", "link", "meta", "thumbs"))
     run = sub.add_parser("run", help="run the whole pipeline")
@@ -33,10 +35,22 @@ def main() -> None:
             command.upgrade(cfg, "head")
         case "dropbox-auth":
             from photoindex.config import get_settings
-            from photoindex.sources.dropbox_source import run_auth_flow
+            from photoindex.sources import dropbox_source
 
             s = get_settings()
-            print("\nDROPBOX_REFRESH_TOKEN=" + run_auth_flow(s.dropbox_app_key, s.dropbox_app_secret))
+            if not (s.dropbox_app_key and s.dropbox_app_secret):
+                raise SystemExit("Set DROPBOX_APP_KEY and DROPBOX_APP_SECRET in .env first")
+            if not args.code:
+                print("Open this URL, click Allow, then run: photoindex dropbox-auth <code>")
+                print(dropbox_source.auth_url(s.dropbox_app_key, s.dropbox_app_secret))
+            else:
+                token = dropbox_source.finish_auth(s.dropbox_app_key, s.dropbox_app_secret, args.code)
+                _set_env("DROPBOX_REFRESH_TOKEN", token)
+                print("Saved DROPBOX_REFRESH_TOKEN to .env. Check it with: photoindex dropbox-check")
+        case "dropbox-check":
+            from photoindex.sources import dropbox_source, get_source
+
+            print(json.dumps(dropbox_source.describe(get_source()), indent=2))
         case "stage":
             from photoindex.worker.pipeline import run_stage
 
@@ -58,6 +72,16 @@ def main() -> None:
             import uvicorn
 
             uvicorn.run("photoindex.api.main:app", host=args.host, port=args.port, reload=args.reload)
+
+
+def _set_env(key: str, value: str, path: str = ".env") -> None:
+    """Set KEY=value in .env, replacing an existing line, without echoing the value."""
+    from pathlib import Path
+
+    p = Path(path)
+    lines = p.read_text().splitlines() if p.exists() else []
+    lines = [ln for ln in lines if not ln.startswith(key + "=")] + [f"{key}={value}"]
+    p.write_text("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":

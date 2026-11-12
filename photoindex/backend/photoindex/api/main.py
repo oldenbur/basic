@@ -25,6 +25,7 @@ def folder_json(f: Folder, counts: dict) -> dict:
     return dict(
         id=f.id, name=f.name, path=f.path_display, kind=f.kind, year=f.year,
         event_date=f.event_date.isoformat() if f.event_date else None, state=f.state, event_name=f.event_name,
+        abroad=f.kind in ("event", "event_sub") and f.state is None,
         parse_ok=f.parse_ok, issues=f.issues or [], suggested_name=f.suggested_name, in_scope=f.in_scope,
         counts=counts.get(f.id, dict.fromkeys(COUNT_FIELDS, 0)),
     )
@@ -57,10 +58,11 @@ def stats(session: Session = Depends(db)) -> dict:
 
 @app.get("/api/tree")
 def tree(session: Session = Depends(db)) -> list[dict]:
-    """Top-level folders: years plus any events sitting directly under the root."""
+    """Top-level YYYY.album folders."""
     counts = folder_counts(session)
     roots = session.scalars(
-        select(Folder).where(~Folder.deleted, Folder.parent_id.is_(None)).order_by(Folder.name)
+        select(Folder).where(~Folder.deleted, Folder.parent_id.is_(None), Folder.kind != "ignored")
+        .order_by(Folder.name)
     ).all()
     return [folder_json(f, counts) for f in roots]
 
@@ -72,7 +74,8 @@ def folder(folder_id: int, session: Session = Depends(db)) -> dict:
         raise HTTPException(404)
     counts = folder_counts(session)
     children = session.scalars(
-        select(Folder).where(~Folder.deleted, Folder.parent_id == folder_id).order_by(Folder.name)
+        select(Folder).where(~Folder.deleted, Folder.parent_id == folder_id, Folder.kind != "ignored")
+        .order_by(Folder.name)
     ).all()
     crumbs, cur = [], f
     while cur is not None:
@@ -102,6 +105,7 @@ def folder_photos(
 
 @app.get("/api/issues")
 def issues(severity: str | None = None, session: Session = Depends(db)) -> list[dict]:
+    """Folders with naming warnings, plus folders ignored for not following the scheme (severity 'ignored')."""
     counts = folder_counts(session)
     rows = session.scalars(
         select(Folder).where(~Folder.deleted, Folder.issues.is_not(None)).order_by(Folder.path_lower)

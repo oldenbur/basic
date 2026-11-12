@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from photoindex.models import Folder
@@ -38,5 +38,14 @@ def run(session: Session, root: str) -> Counter:
 
     for i in range(0, len(updates), 2000):
         session.execute(update(Folder), updates[i : i + 2000])
+    # Photos directly under the root have no folder; they're outside any YYYY.album, so ignored too.
+    session.execute(text("""
+        UPDATE photos ph SET ignored = new.v FROM (
+            SELECT p.id, (f.id IS NULL OR f.kind = 'ignored') AS v
+            FROM photos p LEFT JOIN folders f ON f.id = p.folder_id AND NOT f.deleted
+        ) new
+        WHERE new.id = ph.id AND ph.ignored IS DISTINCT FROM new.v
+    """))
+    stats["photos_ignored"] = session.scalar(text("SELECT count(*) FROM photos WHERE ignored AND NOT deleted"))
     session.commit()
     return stats
