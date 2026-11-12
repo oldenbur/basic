@@ -1,0 +1,42 @@
+"""Classify every folder (year / event / highlights / ...) and record naming-convention issues."""
+
+from collections import Counter
+
+from sqlalchemy import select, update
+from sqlalchemy.orm import Session
+
+from photoindex.models import Folder
+from photoindex.naming import FolderParse, classify
+
+
+def run(session: Session, root: str) -> Counter:
+    rows = session.execute(
+        select(Folder.id, Folder.path_lower, Folder.path_display, Folder.parent_path_lower)
+        .where(~Folder.deleted)
+    ).all()
+    # Parents before children.
+    rows.sort(key=lambda r: r.path_lower.count("/"))
+
+    parses: dict[str, tuple[int, FolderParse, int | None]] = {}  # path_lower -> (id, parse, event_folder_id)
+    updates = []
+    stats: Counter = Counter()
+    for r in rows:
+        rel = tuple(p for p in r.path_display[len(root):].split("/") if p)
+        parent = parses.get(r.parent_path_lower)
+        p = classify(rel, parent[1] if parent else None) if rel and (len(rel) == 1 or parent) else None
+        if p is None:
+            continue
+        event_folder_id = r.id if p.kind == "event" else (parent[2] if parent and p.kind == "event_sub" else None)
+        parses[r.path_lower] = (r.id, p, event_folder_id)
+        stats[p.kind] += 1
+        stats["issues"] += bool(p.issues)
+        updates.append(dict(
+            id=r.id, kind=p.kind, year=p.year, event_date=p.event_date, state=p.state, event_name=p.event_name,
+            event_folder_id=event_folder_id, parse_ok=p.ok,
+            issues=[i.as_dict() for i in p.issues] or None, suggested_name=p.suggested_name,
+        ))
+
+    for i in range(0, len(updates), 2000):
+        session.execute(update(Folder), updates[i : i + 2000])
+    session.commit()
+    return stats
