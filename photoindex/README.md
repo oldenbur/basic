@@ -18,6 +18,21 @@ and AI tagging. The plan is in `~/.claude/plans/i-have-been-collecting-luminous-
 The **processing set** is every original that has a highlight copy, plus any highlight with no findable
 original, plus any folder you tick "Process all photos here" on in the UI. Nothing in Dropbox is ever modified.
 
+## Search, themes and slideshows (Phase 2)
+
+- **Search** (`/search`) covers the processing set: highlights plus any folders ticked "Process all photos here".
+  Event-name text is split on CamelCase (`MooseRiverBWCA` → moose river bwca), matched by word prefix, and
+  tolerant of typos in longer words; `|` separates alternatives. Filters: years, months/seasons, state or
+  "abroad", camera, GPS, highlights only. Each image appears once: byte-identical copies filed in two events
+  collapse, and by default so do bursts.
+- **Themes** (`/themes`) are saved searches. `photoindex seed-themes` adds a starter set drafted from the event
+  names (Skiing, Fourteeners, Camping & backcountry, …); edit or delete them freely.
+- **Slideshow** (`/play?theme=<id>`): keyboard (space, ←/→, F, C, Esc) and swipe, next 5 images preloaded,
+  captions, screen kept awake. Default order shuffles events and plays each in date order.
+- **Large images** (2048px) are rendered by Dropbox the first time a photo is shown (~1s) and kept in S3/R2
+  after that. When a highlight was re-exported (edited), the edited copy is what's shown. "Prepare" on a theme
+  makes them all ahead of time.
+
 ## Run it on a laptop
 
 ```sh
@@ -30,6 +45,7 @@ uv run photoindex dropbox-auth <code>                   # saves DROPBOX_REFRESH_
 uv run photoindex dropbox-check                         # lists the folders under PHOTO_ROOT
 uv run photoindex migrate
 uv run photoindex run                                   # or: stage sync|parse|link|meta|thumbs
+uv run photoindex seed-themes                           # optional starter themes
 uv run photoindex serve                                 # API on :8000
 ```
 
@@ -37,7 +53,7 @@ UI (no local Node needed):
 
 ```sh
 cd frontend
-docker run --rm -p 5173:5173 -e API_TARGET=http://host.docker.internal:8000 \
+docker run --rm -p 5173:5173 -e API_TARGET=http://host.docker.internal:8000 -e CHOKIDAR_USEPOLLING=true \
   -v "$PWD":/app -w /app node:22-alpine sh -c "npm install && npm run dev -- --host 0.0.0.0"
 ```
 

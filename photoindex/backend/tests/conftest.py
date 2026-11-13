@@ -91,6 +91,8 @@ def test_env(monkeypatch, library):
 
     from photoindex.models import Base
 
+    with db.get_engine().begin() as conn:
+        conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     Base.metadata.create_all(db.get_engine())
     yield library
     db.get_engine().dispose()

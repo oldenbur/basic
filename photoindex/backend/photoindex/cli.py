@@ -15,6 +15,7 @@ def main() -> None:
     run = sub.add_parser("run", help="run the whole pipeline")
     run.add_argument("--loop", type=int, metavar="SECONDS", help="repeat forever with this pause between runs")
     sub.add_parser("stats", help="print pipeline counts")
+    sub.add_parser("seed-themes", help="add the starter themes (skiing, fourteeners, ...) that don't exist yet")
     srv = sub.add_parser("serve", help="run the API server")
     srv.add_argument("--host", default="127.0.0.1")
     srv.add_argument("--port", type=int, default=8000)
@@ -68,6 +69,12 @@ def main() -> None:
 
             with session_scope() as session:
                 print(json.dumps(pipeline_stats(session), indent=2))
+        case "seed-themes":
+            from photoindex.db import session_scope
+            from photoindex.themes import seed
+
+            with session_scope() as session:
+                print("added:", ", ".join(seed(session)) or "nothing (all exist)")
         case "serve":
             import uvicorn
 

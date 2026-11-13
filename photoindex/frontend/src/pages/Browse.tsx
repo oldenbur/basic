@@ -1,7 +1,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, Folder, Photo } from "../api";
+import { api, Folder } from "../api";
+import { Lightbox, PhotoTiles } from "../components/Photos";
 
 const KIND_LABEL: Record<string, string> = {
   year: "Year", event: "Event", highlights: "Highlights", event_sub: "Subfolder", highlights_sub: "Highlights",
@@ -42,41 +43,6 @@ function FolderCard({ f }: { f: Folder }) {
   );
 }
 
-function Lightbox({ photos, index, onClose, onMove }: {
-  photos: Photo[]; index: number; onClose: () => void; onMove: (i: number) => void;
-}) {
-  const p = photos[index];
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight" && index < photos.length - 1) onMove(index + 1);
-      if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [index, photos.length, onClose, onMove]);
-
-  return (
-    <div className="lightbox" onClick={onClose}>
-      <figure onClick={(e) => e.stopPropagation()}>
-        {p.thumb_url ? <img src={p.thumb_url} alt={p.name} /> : <div className="no-thumb large">No thumbnail yet</div>}
-        <figcaption>
-          <strong>{p.name}</strong>
-          {p.taken_at && <span>{new Date(p.taken_at).toLocaleString()}</span>}
-          {p.camera && <span>{p.camera}</span>}
-          {p.lat != null && <span>{p.lat.toFixed(3)}, {p.lon?.toFixed(3)}</span>}
-          {p.date_mismatch_days != null && Math.abs(p.date_mismatch_days) > 30 && (
-            <span className="pill pill-warn">
-              {Math.abs(p.date_mismatch_days)} days {p.date_mismatch_days < 0 ? "before" : "after"} event date
-            </span>
-          )}
-          <a href={api.originalUrl(p.id)} target="_blank" rel="noreferrer">Open original</a>
-        </figcaption>
-      </figure>
-    </div>
-  );
-}
-
 function PhotoGrid({ folderId }: { folderId: number }) {
   const [open, setOpen] = useState<number | null>(null);
   const q = useInfiniteQuery({
@@ -90,18 +56,7 @@ function PhotoGrid({ folderId }: { folderId: number }) {
   if (photos.length === 0) return null;
   return (
     <>
-      <div className="grid">
-        {photos.map((p, i) => (
-          <button key={p.id} className="tile" onClick={() => setOpen(i)} title={p.name}>
-            {p.thumb_url ? <img src={p.thumb_url} alt={p.name} loading="lazy" /> : <div className="no-thumb">{p.name}</div>}
-            <span className="badges">
-              {p.has_highlight && <span className="badge" title="Has a highlight copy">★</span>}
-              {p.is_highlight_copy && p.link_method === "none" && <span className="badge" title="No original found">?</span>}
-              {p.burst_group_id != null && <span className="badge" title="Part of a burst">⧉</span>}
-            </span>
-          </button>
-        ))}
-      </div>
+      <PhotoTiles photos={photos} onOpen={setOpen} />
       {q.hasNextPage && (
         <button className="more" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>
           {q.isFetchingNextPage ? "Loading…" : "Load more"}
@@ -159,6 +114,29 @@ function FolderView({ id }: { id: number }) {
   );
 }
 
+function OnThisDay() {
+  const today = new Date();
+  const q = useQuery({ queryKey: ["onthisday", today.toDateString()], queryFn: () => api.onThisDay(today) });
+  const [open, setOpen] = useState<number | null>(null);
+  const photos = q.data ?? [];
+  if (photos.length === 0) return null;
+  const years = new Set(photos.map((p) => p.taken_at?.slice(0, 4)));
+  return (
+    <section className="onthisday">
+      <h2>On this day <span className="muted">· {years.size} year{years.size > 1 ? "s" : ""}</span></h2>
+      <div className="strip">
+        {photos.map((p, i) => (
+          <button key={p.id} className="tile" onClick={() => setOpen(i)} title={p.event_name}>
+            {p.thumb_url && <img src={p.thumb_url} alt={p.name} loading="lazy" />}
+            <span className="year-label">{p.taken_at?.slice(0, 4)}</span>
+          </button>
+        ))}
+      </div>
+      {open != null && <Lightbox photos={photos} index={open} onClose={() => setOpen(null)} onMove={setOpen} />}
+    </section>
+  );
+}
+
 export function Browse() {
   const { id } = useParams();
   const tree = useQuery({ queryKey: ["tree"], queryFn: api.tree, enabled: !id });
@@ -168,6 +146,7 @@ export function Browse() {
   if (!tree.data?.length) return <p className="muted">Library is empty. Run <code>photoindex run</code> to index it.</p>;
   return (
     <>
+      <OnThisDay />
       <h1>Library</h1>
       <div className="folders">{tree.data.map((f) => <FolderCard key={f.id} f={f} />)}</div>
     </>

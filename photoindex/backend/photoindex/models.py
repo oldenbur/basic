@@ -21,13 +21,15 @@ class Folder(Base):
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id", ondelete="SET NULL"), index=True)
     deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
-    # Set by the parse stage. kind: year | event | highlights | event_sub | highlights_sub | other
+    # Set by the parse stage. kind: year | event | highlights | event_sub | highlights_sub | ignored
     kind: Mapped[str | None] = mapped_column(String)
     year: Mapped[int | None] = mapped_column(Integer, index=True)
     event_date: Mapped[date | None] = mapped_column(Date)
     state: Mapped[str | None] = mapped_column(String(8))
     event_name: Mapped[str | None] = mapped_column(String)
     event_folder_id: Mapped[int | None] = mapped_column(ForeignKey("folders.id", ondelete="SET NULL"))
+    # Lower-case words for text search: event name split on CamelCase, place, state code and name.
+    search_terms: Mapped[str | None] = mapped_column(Text)
     parse_ok: Mapped[bool | None] = mapped_column(Boolean)
     issues: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     suggested_name: Mapped[str | None] = mapped_column(String)
@@ -77,6 +79,8 @@ class Photo(Base):
     thumb_status: Mapped[str] = mapped_column(String, default="pending", server_default="pending", index=True)
     thumb_key: Mapped[str | None] = mapped_column(String)
     phash: Mapped[str | None] = mapped_column(String(16))
+    # 2048px slideshow copy, made lazily on first view (or by "Prepare" on a theme).
+    display_key: Mapped[str | None] = mapped_column(String)
 
     error: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -89,4 +93,18 @@ class SyncState(Base):
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     cursor: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Theme(Base):
+    """A saved search (photoindex.search.ThemeQuery) that can be played as a slideshow."""
+
+    __tablename__ = "themes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    query: Mapped[dict] = mapped_column(JSONB)
+    sort: Mapped[str] = mapped_column(String, default="event_shuffle", server_default="event_shuffle")
+    cover_photo_id: Mapped[int | None] = mapped_column(ForeignKey("photos.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

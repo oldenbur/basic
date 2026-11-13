@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from photoindex.models import Folder
 from photoindex.naming import FolderParse, classify
+from photoindex.search import folder_terms
 
 
 def run(session: Session, root: str) -> Counter:
@@ -34,6 +35,7 @@ def run(session: Session, root: str) -> Counter:
             id=r.id, kind=p.kind, year=p.year, event_date=p.event_date, state=p.state, event_name=p.event_name,
             event_folder_id=event_folder_id, parse_ok=p.ok,
             issues=[i.as_dict() for i in p.issues] or None, suggested_name=p.suggested_name,
+            search_terms=folder_terms(rel[-1], p.event_name, p.state, p.kind),
         ))
 
     for i in range(0, len(updates), 2000):
