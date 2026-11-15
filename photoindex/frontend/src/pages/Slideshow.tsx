@@ -10,7 +10,7 @@ const SPEEDS = [3, 5, 8, 12, 20];
 function caption(p: Photo): string {
   const when = p.taken_at ?? p.event_date;
   const date = when ? new Date(when).toLocaleDateString(undefined, { month: "long", year: "numeric" }) : null;
-  const where = p.abroad ? null : p.state;
+  const where = p.abroad ? p.place : p.state;  // abroad: the AI's place guess, when there is one
   return [p.event_name && eventTitle(p.event_name), date, where].filter(Boolean).join(" · ");
 }
 

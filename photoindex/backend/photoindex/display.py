@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from photoindex import storage
 from photoindex.models import Photo
+from photoindex.rotation import rotate_jpeg
 from photoindex.sources import PhotoSource
 
 log = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ def render(session: Session, source: PhotoSource, ids: list[int], workers: int =
     if not todo:
         return have
     paths = source_paths(session, todo)
+    rotation = dict(session.execute(select(Photo.id, Photo.rotation).where(Photo.id.in_(todo))).all())
 
     def fetch(chunk: list[int]) -> dict[str, bytes | None]:
         try:
@@ -60,9 +62,10 @@ def render(session: Session, source: PhotoSource, ids: list[int], workers: int =
         out = {}
         for i in chunk:
             data = images.get(paths[i])
+            key = storage.display_key(i, rotation[i])
             if data:
-                storage.put_image(storage.display_key(i), data)
-            out[i] = storage.display_key(i) if data else None
+                storage.put_image(key, rotate_jpeg(data, rotation[i]))
+            out[i] = key if data else None
         return out
 
     chunks = [todo[i : i + CHUNK] for i in range(0, len(todo), CHUNK)]

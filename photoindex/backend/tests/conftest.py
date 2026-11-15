@@ -143,3 +143,96 @@ def fake_face_engine(monkeypatch):
     fake = FakeFaceEngine()
     monkeypatch.setattr(engine, "get_engine", lambda: fake)
     return fake
+
+
+class FakeBatches:
+    """Stands in for client.messages.batches. Answers depend on the photo's colour (read from the image sent),
+    the model, and the context text, so tests can check what was sent and how answers are applied."""
+
+    def __init__(self):
+        self.batches: dict[str, list[dict]] = {}
+        self.hold = False  # True: batches stay "in_progress"
+        self.fail_once: set[int] = set()  # photo ids that get a retryable error the first time
+        self.invalid: set[int] = set()  # photo ids that get a non-retryable error
+        self.refuse: set[int] = set()
+
+    def create(self, requests):
+        from types import SimpleNamespace
+
+        bid = f"msgbatch_{len(self.batches) + 1}"
+        self.batches[bid] = list(requests)
+        return SimpleNamespace(id=bid, processing_status="in_progress")
+
+    def retrieve(self, batch_id):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(id=batch_id, processing_status="in_progress" if self.hold else "ended")
+
+    @staticmethod
+    def colour(params) -> tuple[int, int, int]:
+        import base64
+
+        img = next(c for c in params["messages"][0]["content"] if c["type"] == "image")
+        with Image.open(io.BytesIO(base64.b64decode(img["source"]["data"]))) as im:
+            return im.convert("RGB").getpixel((im.width - 3, im.height - 3))
+
+    def answer(self, params) -> dict:
+        r, g, b = self.colour(params)
+        ctx = params["messages"][0]["content"][1]["text"]
+        colourful = max(r, g, b) - min(r, g, b) > 50
+        haiku = params["model"] == "claude-haiku-5-5"
+        abroad = "outside the US" in ctx
+        return {
+            "rotation": 90 if (r, g, b) != (0, 0, 0) and abs(r - 0) < 12 and abs(g - 120) < 12 and abs(b - 120) < 12 else 0,
+            "caption": ("Kids skiing" if colourful else "A hike by a lake") + (" (haiku)" if haiku else ""),
+            "scene": "Ski Slopes" if colourful else "alpine lake",
+            "setting": "outdoor",
+            "activities": ["Downhill Skiing"] if colourful else ["hiking"],
+            "objects": ["Sleds", "fire"] if colourful else ["waterfalls"],
+            "animals": ["Dogs"] if colourful and not haiku else [],
+            "camping_gear": ["Tents"] if not colourful else [],
+            "vehicles": [{"type": "Pickup", "make_model": "Jeep Wrangler", "color": "red"}] if colourful else [],
+            "landmarks": ["Eldora"] if colourful else [],
+            "location": ({"country": "Norway", "region": "Oslo", "city": "Oslo", "place_name": "Vigeland Park",
+                          "confidence": "medium"} if abroad else
+                         {"country": "United States", "region": "Colorado", "city": "Nederland", "place_name": "",
+                          "confidence": "low"}),
+            "people_count": 2,
+            "aesthetic": 9 if colourful else 4,
+            "confidence": "high",
+        }
+
+    def results(self, batch_id):
+        import json
+        from types import SimpleNamespace as NS
+
+        for req in self.batches[batch_id]:
+            pid = int(req["custom_id"][1:])
+            if pid in self.invalid:
+                yield NS(custom_id=req["custom_id"], result=NS(type="errored", error=NS(
+                    type="error", error=NS(type="invalid_request_error", message="bad image"))))
+                continue
+            if pid in self.fail_once:
+                self.fail_once.discard(pid)
+                yield NS(custom_id=req["custom_id"], result=NS(type="errored", error=NS(
+                    type="error", error=NS(type="api_error", message="overloaded"))))
+                continue
+            refused = pid in self.refuse
+            msg = NS(stop_reason="refusal" if refused else "end_turn",
+                     content=[NS(type="text", text="" if refused else json.dumps(self.answer(req["params"])))],
+                     usage=NS(input_tokens=1200, output_tokens=300, cache_read_input_tokens=1500,
+                              cache_creation_input_tokens=0))
+            yield NS(custom_id=req["custom_id"], result=NS(type="succeeded", message=msg))
+
+
+@pytest.fixture(autouse=True)
+def fake_anthropic(monkeypatch):
+    from types import SimpleNamespace
+
+    from photoindex.tagging import client
+
+    batches = FakeBatches()
+    fake = SimpleNamespace(messages=SimpleNamespace(batches=batches))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(client, "get_client", lambda: fake)
+    return batches

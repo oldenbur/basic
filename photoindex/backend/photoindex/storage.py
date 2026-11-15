@@ -58,12 +58,17 @@ def image_url(key: str, expires: int = 6 * 3600) -> str:
     )
 
 
-def thumb_key(photo_id: int) -> str:
-    return f"thumbs/640/{photo_id}.jpg"
+# A rotated copy gets its own key, so browsers and the CDN never serve the old orientation from cache.
+def _rot(rotation: int) -> str:
+    return f"-r{rotation}" if rotation % 360 else ""
 
 
-def display_key(photo_id: int) -> str:
-    return f"display/2048/{photo_id}.jpg"
+def thumb_key(photo_id: int, rotation: int = 0) -> str:
+    return f"thumbs/640/{photo_id}{_rot(rotation)}.jpg"
+
+
+def display_key(photo_id: int, rotation: int = 0) -> str:
+    return f"display/2048/{photo_id}{_rot(rotation)}.jpg"
 
 
 def face_key(face_id: int) -> str:

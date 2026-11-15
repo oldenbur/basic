@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from datetime import date
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
@@ -16,13 +17,22 @@ from photoindex.search import ThemeQuery
 from photoindex.sources import get_source
 from photoindex.worker.stages.link import _update_processing_set
 
-app = FastAPI(title="PhotoIndex")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    from photoindex.tagging.worker import worker
+
+    worker.start()  # collects AI batches and sends more, every minute
+    yield
+
+
+app = FastAPI(title="PhotoIndex", lifespan=lifespan)
 
 
 def _include_routers() -> None:
-    from photoindex.api.people import router
+    from photoindex.api import people, tagging
 
-    app.include_router(router)
+    app.include_router(people.router)
+    app.include_router(tagging.router)
 
 
 def db() -> Iterator[Session]:
@@ -52,7 +62,11 @@ def photo_json(p: Photo, original: Photo | None = None) -> dict:
         burst_group_id=p.burst_group_id, date_mismatch_days=p.date_mismatch_days,
         meta_status=p.meta_status, thumb_status=p.thumb_status, error=p.error,
         thumb_url=storage.image_url(src.thumb_key) if src.thumb_key else None,
-        display_url=f"/api/photos/{src.id}/display", face_count=src.face_count,
+        # ?r= changes when the photo is turned, so browsers don't reuse the old image
+        display_url=f"/api/photos/{src.id}/display" + (f"?r={src.rotation}" if src.rotation else ""),
+        face_count=src.face_count,
+        caption=src.caption, aesthetic=src.aesthetic, rotation=src.rotation,
+        place=", ".join(x for x in (src.place_city, src.place_region, src.place_country) if x) or None,
     )
 
 

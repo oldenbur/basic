@@ -28,7 +28,15 @@ STARTER_THEMES: list[tuple[str, ThemeQuery]] = [
     ("Halloween", ThemeQuery(text="halloween | haloween | monster dash")),
     ("Thanksgiving", ThemeQuery(text="thanksgiving")),
     ("Trips abroad", ThemeQuery(states=["abroad"])),
+    # These need AI tags (captions and tags are searched too); they fill in as highlights are tagged.
+    ("Beach days", ThemeQuery(text="beach | ocean | snorkel")),
+    ("On the water", ThemeQuery(text="kayak | canoe | paddleboard | raft | sail | boat | tubing")),
+    ("Campfires", ThemeQuery(text="campfire | marshmallow")),
+    ("Dogs", ThemeQuery(text="dog")),
+    ("Birthdays", ThemeQuery(text="birthday")),
+    ("The best of", ThemeQuery(min_score=8)),
 ]
+SORTS = {"The best of": "best"}
 
 
 def seed(session: Session) -> list[str]:
@@ -37,7 +45,8 @@ def seed(session: Session) -> list[str]:
     added = []
     for name, q in STARTER_THEMES:
         if name not in existing:
-            session.add(Theme(name=name, query=q.model_dump(exclude_defaults=True), sort="event_shuffle"))
+            session.add(Theme(name=name, query=q.model_dump(exclude_defaults=True),
+                              sort=SORTS.get(name, "event_shuffle")))
             added.append(name)
     session.commit()
     return added

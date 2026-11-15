@@ -4,6 +4,7 @@ import io
 import logging
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from typing import NamedTuple
 
 import numpy as np
 from PIL import Image
@@ -14,7 +15,7 @@ from photoindex import display, storage
 from photoindex.faces import engine as face_engine
 from photoindex.faces.cluster import quality
 from photoindex.faces.people import refresh
-from photoindex.models import Face, Photo
+from photoindex.models import Face, Person, Photo
 from photoindex.sources import PhotoSource
 from photoindex.worker.stages import claim, reset_stale
 
@@ -39,6 +40,40 @@ def _crop(img: Image.Image, box: tuple[float, float, float, float]) -> bytes:
     buf = io.BytesIO()
     region.save(buf, "JPEG", quality=85)
     return buf.getvalue()
+
+
+class _Old(NamedTuple):
+    id: int
+    x: float
+    y: float
+    w: float
+    h: float
+    person_id: int | None
+    assigned_by: str | None
+    ignored: bool
+    rejected_person_ids: list[int] | None
+
+
+def _iou(a, b) -> float:
+    ix = max(0.0, min(a.x + a.w, b.x + b.w) - max(a.x, b.x))
+    iy = max(0.0, min(a.y + a.h, b.y + b.h) - max(a.y, b.y))
+    inter = ix * iy
+    return inter / (a.w * a.h + b.w * b.h - inter) if inter else 0.0
+
+
+def _carry_over(session: Session, old: list[_Old], new: list[Face], covers: dict[int, int]) -> None:
+    """Detecting again (e.g. after turning a photo upright) keeps what you said about each face: a new face that
+    sits where an old one was inherits its name, rejections and ignore flag, and stays a person's cover."""
+    for o in old:
+        if o.person_id is None and not o.ignored and not o.rejected_person_ids:
+            continue
+        best = max(new, key=lambda n: _iou(o, n), default=None)
+        if best is None or _iou(o, best) < 0.4:
+            continue
+        best.person_id, best.assigned_by, best.ignored = o.person_id, o.assigned_by, o.ignored
+        best.rejected_person_ids = list(o.rejected_person_ids or [])
+        if o.id in covers:
+            session.execute(update(Person).where(Person.id == covers[o.id]).values(cover_face_id=best.id))
 
 
 def run(session: Session, source: PhotoSource, workers: int) -> Counter:
@@ -69,6 +104,10 @@ def run(session: Session, source: PhotoSource, workers: int) -> Counter:
                     results.append(dict(id=pid, face_status="error", error=err))
                     continue
                 faces = [f for f in eng.detect(np.asarray(img), MIN_SCORE) if min(f.box[2], f.box[3]) >= MIN_FACE_PX]
+                old = [_Old(f.id, f.x, f.y, f.w, f.h, f.person_id, f.assigned_by, f.ignored, f.rejected_person_ids)
+                       for f in session.scalars(select(Face).where(Face.photo_id == pid))]
+                covers = dict(session.execute(select(Person.cover_face_id, Person.id).where(
+                    Person.cover_face_id.in_([o.id for o in old]))).all()) if old else {}
                 session.execute(delete(Face).where(Face.photo_id == pid))  # re-run: replace
                 rows = [Face(
                     photo_id=pid, x=f.box[0] / img.width, y=f.box[1] / img.height, w=f.box[2] / img.width,
@@ -78,6 +117,7 @@ def run(session: Session, source: PhotoSource, workers: int) -> Counter:
                 ) for f in faces]
                 session.add_all(rows)
                 session.flush()
+                _carry_over(session, old, rows, covers)
                 for row, f in zip(rows, faces, strict=True):
                     row.crop_key = storage.face_key(row.id)
                     storage.put_image(row.crop_key, _crop(img, f.box))

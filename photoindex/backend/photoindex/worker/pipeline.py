@@ -4,11 +4,11 @@ import time
 from photoindex.config import get_settings
 from photoindex.db import session_scope
 from photoindex.sources import PhotoSource, get_source
-from photoindex.worker.stages import faces, link, meta, parse, sync, thumbs
+from photoindex.worker.stages import faces, link, meta, parse, places, sync, thumbs
 
 log = logging.getLogger(__name__)
 
-STAGES = ("sync", "parse", "link", "meta", "thumbs", "faces", "people")
+STAGES = ("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag")
 
 
 def run_stage(name: str, source: PhotoSource | None = None) -> dict:
@@ -24,6 +24,8 @@ def run_stage(name: str, source: PhotoSource | None = None) -> dict:
                 stats = link.run(session)
             case "meta":
                 stats = meta.run(session, source, s.exif_head_bytes, s.workers)
+            case "places":
+                stats = places.run(session)
             case "thumbs":
                 stats = thumbs.run(session, source, s.workers)
             case "faces":
@@ -32,6 +34,10 @@ def run_stage(name: str, source: PhotoSource | None = None) -> dict:
                 from photoindex.faces.people import refresh
 
                 return refresh(session)
+            case "tag":  # collect finished AI batches and send more (the API server also does this every minute)
+                from photoindex.tagging.batches import tick
+
+                return tick(session, source)
             case _:
                 raise ValueError(f"unknown stage {name!r}")
     log.info("%s: %s", name, dict(stats))
@@ -47,8 +53,10 @@ def run_all(source: PhotoSource | None = None) -> dict:
     # then pick up EXIF for any highlights that just became standalone.
     out["link2"] = run_stage("link", source)
     out["meta2"] = run_stage("meta", source)
+    out["places"] = run_stage("places", source)
     out["thumbs"] = run_stage("thumbs", source)
     out["faces"] = run_stage("faces", source)
+    out["tag"] = run_stage("tag", source)
     return out
 
 

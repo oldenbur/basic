@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     models_dir: str = "~/.cache/photoindex/models"  # face models, downloaded on first use
     exif_head_bytes: int = 128 * 1024
 
+    # AI tagging (Claude Message Batches API). The model and daily spend cap are chosen in the UI.
+    anthropic_api_key: str = ""
+    tag_batch_size: int = 500  # photos per batch: ~150KB of image each, well under the 256MB batch limit
+    tag_max_open_batches: int = 2
+
 
 @lru_cache
 def get_settings() -> Settings:

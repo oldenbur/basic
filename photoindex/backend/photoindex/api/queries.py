@@ -30,7 +30,12 @@ def pipeline_stats(session: Session) -> dict:
           count(*) FILTER (WHERE face_status = 'done') AS faces_done,
           count(*) FILTER (WHERE face_status = 'error') AS face_errors,
           (SELECT count(*) FROM faces) AS faces_found,
-          (SELECT count(*) FROM faces WHERE person_id IS NOT NULL) AS faces_named
+          (SELECT count(*) FROM faces WHERE person_id IS NOT NULL) AS faces_named,
+          count(*) FILTER (WHERE in_processing_set AND place_source IS NOT NULL) AS placed,
+          count(*) FILTER (WHERE tag_status IN ('done', 'follower') AND ai_id IS NOT NULL) AS tags_done,
+          count(*) FILTER (WHERE tag_status = 'queued') AS tags_queued,
+          count(*) FILTER (WHERE tag_status = 'error') AS tag_errors,
+          count(*) FILTER (WHERE rotation <> 0) AS rotated
         FROM photos WHERE NOT deleted AND NOT ignored
     """)).mappings().one()
     return dict(row)

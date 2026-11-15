@@ -11,7 +11,17 @@ def main() -> None:
     au.add_argument("code", nargs="?", help="authorization code from the Dropbox approval page")
     sub.add_parser("dropbox-check", help="confirm Dropbox access and list the folders under PHOTO_ROOT")
     st = sub.add_parser("stage", help="run one pipeline stage")
-    st.add_argument("name", choices=("sync", "parse", "link", "meta", "thumbs", "faces", "people"))
+    st.add_argument("name", choices=("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag"))
+    tg = sub.add_parser("tag", help="AI tagging: pilot, status, choose a model, collect results")
+    tg_sub = tg.add_subparsers(dest="tag_cmd", required=True)
+    tp = tg_sub.add_parser("pilot", help="send the same highlights to every model for comparison")
+    tp.add_argument("--size", type=int, default=300)
+    tg_sub.add_parser("status", help="spend, progress and recent batches")
+    tc = tg_sub.add_parser("choose", help="tag everything with this model (applies its pilot answers)")
+    tc.add_argument("model")
+    tg_sub.add_parser("poll", help="collect finished batches and send more now")
+    cap = tg_sub.add_parser("cap", help="set the daily spend cap in dollars")
+    cap.add_argument("dollars", type=float)
     run = sub.add_parser("run", help="run the whole pipeline")
     run.add_argument("--loop", type=int, metavar="SECONDS", help="repeat forever with this pause between runs")
     sub.add_parser("stats", help="print pipeline counts")
@@ -56,6 +66,26 @@ def main() -> None:
             from photoindex.worker.pipeline import run_stage
 
             print(json.dumps(run_stage(args.name), indent=2))
+        case "tag":
+            from photoindex.db import session_scope
+            from photoindex.sources import get_source
+            from photoindex.tagging import batches
+
+            with session_scope() as session:
+                match args.tag_cmd:
+                    case "pilot":
+                        runs = batches.start_pilot(session, get_source(), args.size)
+                        out = [dict(model=r.model, batch=r.batch_id, photos=r.requests, est=round(r.est_cost_usd, 2))
+                               for r in runs]
+                    case "status":
+                        out = batches.status(session)
+                    case "choose":
+                        out = {"applied_pilot_answers": batches.choose(session, args.model)}
+                    case "poll":
+                        out = batches.tick(session, get_source())
+                    case "cap":
+                        out = batches.set_config(session, daily_cap=args.dollars)
+            print(json.dumps(out, indent=2, default=str))
         case "run":
             from photoindex.worker import pipeline
 

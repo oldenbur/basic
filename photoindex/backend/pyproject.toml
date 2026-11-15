@@ -21,6 +21,8 @@ dependencies = [
     "numpy>=2.5.4",
     "scikit-learn>=1.9.1",
     "pgvector>=0.5.1",
+    "anthropic>=2.8.0",
+    "reverse-geocode>=1.6.6",
 ]
 
 [project.scripts]

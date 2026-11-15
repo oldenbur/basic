@@ -19,7 +19,12 @@ const ROWS: [string, string][] = [
   ["faces_done", "Highlights checked for faces"],
   ["faces_found", "Faces found"],
   ["faces_named", "…named"],
+  ["placed", "Photos with a place (GPS, folder or AI)"],
+  ["tags_done", "Highlights tagged by the AI"],
+  ["tags_queued", "…in batches now"],
+  ["rotated", "Photos turned upright in the app"],
   ["face_errors", "Face errors"],
+  ["tag_errors", "AI tagging errors"],
   ["meta_errors", "EXIF errors"],
   ["thumb_errors", "Thumbnail errors"],
 ];

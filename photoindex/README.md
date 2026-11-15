@@ -13,8 +13,10 @@ and AI tagging. The plan is in `~/.claude/plans/i-have-been-collecting-luminous-
 | `parse` | Classifies folders (year / event / highlights / ignored), flags naming issues, suggests renames. | every folder |
 | `link` | Matches highlight copies to originals: content hash → filename stem → stem + EXIF time. Computes the processing set. | highlights |
 | `meta` | Reads EXIF from the first 128KB of each file: date, GPS, camera. Flags dates that disagree with the event folder; groups bursts. | processing set |
+| `places` | Country / state / town from GPS (offline reverse geocoding), else the event folder's US state. | processing set |
 | `thumbs` | Dropbox-rendered 640px JPEGs → S3/R2, plus a perceptual hash. | processing set |
 | `faces` | Finds faces in the 2048px copy (InsightFace buffalo_l via onnxruntime, on the CPU), stores a 512-d embedding and a 160px crop per face, then matches and regroups (below). | highlights |
+| `tag` | Collects finished AI batches and sends more (Phase 4, below). The API server also does this every minute. | highlights |
 
 The **processing set** is every original that has a highlight copy, plus any highlight with no findable
 original, plus any folder you tick "Process all photos here" on in the UI. Nothing in Dropbox is ever modified.
@@ -52,6 +54,35 @@ Everything runs locally; no photo or face data leaves the machine except crops g
   "with" (any / all together) and group-size filters.
 - `photoindex stage faces` finds faces; `photoindex stage people` re-matches and regroups without detecting.
 
+## AI tags (Phase 4)
+
+Claude describes each highlight through the Message Batches API (half price, results within 24h, usually under
+an hour). Needs `ANTHROPIC_API_KEY` in `backend/.env`, with API credits (console.anthropic.com → Billing);
+a Claude.ai subscription doesn't cover API use.
+
+- **What's sent:** the photo at 1024px plus what the library knows: event folder, date, GPS place, and the names of
+  recognised people, left to right. The frozen instructions are prompt-cached. Answers are structured JSON
+  (`tagging/prompt.py`): caption, scene, indoor/outdoor, activities, things, animals, camping gear, vehicles (type,
+  make/model guess, colour), landmarks, a place guess with confidence, people count, a 1–10 slideshow score, and a
+  rotation check. Thinking is off (Haiku, Sonnet) or at low effort (Opus).
+- **Pilot first** (`/tagging`, or `photoindex tag pilot`): the same ~300 highlights, spread across the years, go to
+  Haiku 5.5, Sonnet 5.5 and Opus 5.5. `/tagging/compare` shows the three answers side by side with the model names
+  hidden until you pick the best (keys 1–3, 0 for none); click any tag, caption or place to mark it wrong. The
+  summary shows wins, wrong answers and the measured cost per photo. Pilot answers aren't applied until you choose.
+- **Choosing a model** applies its pilot answers and starts the backfill: batches of 500, two at a time, under a
+  **daily spend cap** (default $25, UTC days, set on the page or with `photoindex tag cap 40`). Bursts and
+  near-duplicates (same event, phash within 4 bits) send one photo and copy its answer. Failed requests retry up
+  to 3 times; refusals and invalid requests don't.
+- **Applying answers:** tags are normalised (lowercase, singular, a synonym list) into a vocabulary you can merge,
+  rename or hide on `/tags`; merges also catch future answers. Your edits in the lightbox (`I`: remove a tag, add
+  one) survive re-tagging. The AI's place is used only where GPS and the folder say nothing, at medium confidence or
+  better. A photo it says is sideways is turned upright in the app (new image keys, face boxes moved, faces found
+  again with names carried over); ↺ ↻ in the lightbox do the same by hand. Dropbox is never changed.
+- **Search:** words now match captions and tags too (stemmed: "skis" finds "skiing"), and there are filters for
+  tags (any within a kind, all across kinds), country and state, a minimum score, and a "best first" sort.
+  `seed-themes` adds Beach days, On the water, Campfires, Dogs, Birthdays and The best of.
+- CLI: `photoindex tag status | pilot [--size N] | choose <model> | poll | cap <dollars>`.
+
 ## Run it on a laptop
 
 ```sh
@@ -63,7 +94,7 @@ uv run photoindex dropbox-auth                          # open the printed URL a
 uv run photoindex dropbox-auth <code>                   # saves DROPBOX_REFRESH_TOKEN into .env
 uv run photoindex dropbox-check                         # lists the folders under PHOTO_ROOT
 uv run photoindex migrate
-uv run photoindex run                                   # or: stage sync|parse|link|meta|thumbs
+uv run photoindex run                                   # or: stage sync|parse|link|meta|places|thumbs|faces|tag
 uv run photoindex seed-themes                           # optional starter themes
 uv run photoindex serve                                 # API on :8000
 ```

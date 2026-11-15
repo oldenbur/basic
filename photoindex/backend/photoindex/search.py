@@ -9,11 +9,13 @@ import re
 from datetime import date
 
 from pydantic import BaseModel, Field
-from sqlalchemy import DateTime, Select, Text, and_, case, cast, exists, extract, func, literal, or_, select, true
+from sqlalchemy import (DateTime, Select, Text, and_, case, cast, exists, extract, false, func, literal, or_, select,
+                        true)
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session, aliased
 
-from photoindex.models import Face, Folder, Person, Photo
+from photoindex.models import Face, Folder, Person, Photo, PhotoTag, Tag
+from photoindex.tagging.vocab import CATEGORIES
 
 STATE_NAMES = {
     "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california", "CO": "colorado",
@@ -28,7 +30,7 @@ STATE_NAMES = {
     "WI": "wisconsin", "WY": "wyoming", "DC": "district of columbia", "PR": "puerto rico",
 }
 ABROAD = "abroad"  # pseudo-state for events outside the US
-SORTS = ("event_shuffle", "date", "shuffle")
+SORTS = ("event_shuffle", "date", "shuffle", "best")
 
 # "MooseRiverBWCA" -> Moose River BWCA; "SMRLodgeSkiing" -> SMR Lodge Skiing; "Twins14mo" -> Twins 14 mo
 _WORD_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
@@ -67,9 +69,22 @@ class ThemeQuery(BaseModel):
     people: list[int] = Field(default_factory=list)  # person ids
     people_all: bool = False  # True: every listed person is in the photo; False: any of them
     group: str | None = None  # "solo" (1 face), "small" (2-4), "large" (5+)
+    # AI tags as "category:value" ("activity:skiing"): any of them within a category, every category given.
+    tags: list[str] = Field(default_factory=list)
+    countries: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)  # states / provinces
+    min_score: int | None = None  # the AI's 1-10 rating of how good the photo is
 
 
 GROUP_SIZES = {"solo": (1, 1), "small": (2, 4), "large": (5, None)}
+
+
+def _ai_word(w: str):
+    """The word in the photo's caption, tags or place, stemmed ("skiing" finds "skis"; "dog" finds "dogs")."""
+    w = re.sub(r"[^a-z0-9]", "", w.lower())
+    if not w:
+        return false()
+    return Photo.ai_tsv.op("@@")(func.to_tsquery("english", w))
 
 
 def _text_filter(text: str):
@@ -84,7 +99,7 @@ def _text_filter(text: str):
             cond = terms.like(f"% {w.replace('%', '').replace('_', '')}%")  # word prefix
             if len(w) >= 5:  # typo tolerance on longer words only; short ones would match too much
                 cond = cond | (func.word_similarity(w, Folder.search_terms) >= 0.6)
-            conds.append(cond)
+            conds.append(cond | _ai_word(w))
         alternatives.append(and_(*conds))
     return or_(*alternatives) if alternatives else true()
 
@@ -127,6 +142,21 @@ def _base(q: ThemeQuery) -> Select:
         def with_person(ids):
             return exists().where(Face.photo_id == Photo.id, Face.person_id.in_(ids), ~Face.ignored)
         conds.append(and_(*[with_person([p]) for p in q.people]) if q.people_all else with_person(q.people))
+    if q.tags:
+        by_cat: dict[str, list[str]] = {}
+        for t in q.tags:
+            cat, _, value = t.partition(":")
+            by_cat.setdefault(cat, []).append(value.lower())
+        for cat, values in by_cat.items():
+            conds.append(exists().where(
+                PhotoTag.photo_id == Photo.id, ~PhotoTag.removed, PhotoTag.tag_id == Tag.id, Tag.category == cat,
+                func.lower(Tag.value).in_(values)))
+    if q.countries:
+        conds.append(Photo.place_country.in_(q.countries))
+    if q.regions:
+        conds.append(Photo.place_region.in_(q.regions))
+    if q.min_score is not None:
+        conds.append(Photo.aesthetic >= q.min_score)
     if q.group in GROUP_SIZES:
         lo, hi = GROUP_SIZES[q.group]
         conds.append(Photo.face_count >= lo)
@@ -141,7 +171,9 @@ def _base(q: ThemeQuery) -> Select:
     return (
         select(Photo.id.label("id"), when.label("taken"),
                func.coalesce(Folder.event_folder_id, Folder.id).label("grp"), Folder.year.label("year"),
-               Folder.state.label("state"), Folder.kind.label("kind"), Photo.camera_model.label("camera"))
+               Folder.state.label("state"), Folder.kind.label("kind"), Photo.camera_model.label("camera"),
+               Photo.aesthetic.label("score"), Photo.place_country.label("country"),
+               Photo.place_region.label("region"))
         .join(Folder, Folder.id == Photo.folder_id)
         .where(*conds)
         .ext(distinct_on(dkey))
@@ -156,6 +188,7 @@ def _ordered(q: ThemeQuery, sort: str, seed: int) -> Select:
         "date": (d.c.taken.asc().nulls_last(), d.c.id),
         "shuffle": (shuffle(d.c.id),),
         "event_shuffle": (shuffle(d.c.grp), d.c.taken.asc().nulls_last(), d.c.id),
+        "best": (d.c.score.desc().nulls_last(), shuffle(d.c.id)),  # equal scores in a fresh order each time
     }[sort if sort in SORTS else "event_shuffle"]
     return select(d.c.id).order_by(*order)
 
@@ -174,12 +207,26 @@ def count(session: Session, q: ThemeQuery) -> int:
 
 # Each facet is counted without its own filter, so picking one state still shows the others to add.
 _FACET_FILTERS = {"year": ("year_from", "year_to"), "month": ("months",), "state": ("states",),
-                  "camera": ("cameras",), "person": ("people", "people_all")}
+                  "camera": ("cameras",), "person": ("people", "people_all"), "country": ("countries",),
+                  "region": ("regions",), "score": ("min_score",)}
+TAG_FACET_LIMIT = 40
 
 
 def facets(session: Session, q: ThemeQuery) -> dict[str, list[dict]]:
-    """Counts per year, month, state ("abroad" for events outside the US), camera and person."""
+    """Counts per year, month, state ("abroad" for events outside the US), camera, person, place, score, and
+    per AI tag category (top TAG_FACET_LIMIT tags each)."""
     out = {}
+    for cat in CATEGORIES:
+        # Within a category the tags are alternatives, so its facet drops just that category's picks.
+        others = [t for t in q.tags if not t.startswith(cat + ":")]
+        d = _base(q.model_copy(update={"tags": others})).subquery()
+        n = func.count(func.distinct(PhotoTag.photo_id))
+        rows = session.execute(
+            select(Tag.value, n).join(PhotoTag, PhotoTag.tag_id == Tag.id).join(d, d.c.id == PhotoTag.photo_id)
+            .where(Tag.category == cat, ~Tag.hidden, ~PhotoTag.removed)
+            .group_by(Tag.value).order_by(n.desc(), Tag.value).limit(TAG_FACET_LIMIT)
+        ).all()
+        out[cat] = [{"value": f"{cat}:{v}", "label": v, "count": c} for v, c in rows]
     for name, fields in _FACET_FILTERS.items():
         d = _base(q.model_copy(update={f: ThemeQuery.model_fields[f].get_default(call_default_factory=True)
                                        for f in fields})).subquery()
@@ -197,10 +244,13 @@ def facets(session: Session, q: ThemeQuery) -> dict[str, list[dict]]:
             "state": case((d.c.state.is_not(None), d.c.state),
                           (d.c.kind.in_(("event", "event_sub")), literal(ABROAD)), else_=None),
             "camera": d.c.camera,
+            "country": d.c.country,
+            "region": d.c.region,
+            "score": d.c.score,
         }[name]
         rows = session.execute(
             select(col.label("value"), func.count().label("n")).where(col.is_not(None))
-            .group_by(col).order_by(func.count().desc() if name in ("state", "camera") else col)
+            .group_by(col).order_by(func.count().desc() if name in ("state", "camera", "country", "region") else col)
         ).all()
         out[name] = [{"value": int(v) if name == "month" else v, "count": n} for v, n in rows]
     return out

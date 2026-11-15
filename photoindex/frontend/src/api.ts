@@ -40,6 +40,10 @@ export type Photo = {
   thumb_url: string | null;
   display_url: string;
   face_count: number | null;
+  caption: string | null;
+  aesthetic: number | null;
+  rotation: number;
+  place: string | null;
   // present on search results
   event_name?: string;
   event_folder_id?: number;
@@ -62,13 +66,25 @@ export type ThemeQuery = {
   people?: number[];
   people_all?: boolean;
   group?: "solo" | "small" | "large" | null;
+  tags?: string[]; // "category:value"
+  countries?: string[];
+  regions?: string[];
+  min_score?: number | null;
 };
 
-export type Sort = "event_shuffle" | "date" | "shuffle";
+export type Sort = "event_shuffle" | "date" | "shuffle" | "best";
 export const SORT_LABEL: Record<Sort, string> = {
   event_shuffle: "Events shuffled, in order within each",
   date: "Oldest first",
   shuffle: "Fully shuffled",
+  best: "Best first (AI score)",
+};
+
+export const TAG_CATEGORIES = ["activity", "scene", "object", "animal", "gear", "vehicle", "landmark"] as const;
+export type TagCategory = (typeof TAG_CATEGORIES)[number];
+export const CATEGORY_LABEL: Record<TagCategory, string> = {
+  activity: "Doing", scene: "Scene", object: "Things", animal: "Animals", gear: "Camping gear",
+  vehicle: "Vehicles", landmark: "Landmarks",
 };
 
 export type Facet = { value: string | number; count: number; label?: string };
@@ -76,7 +92,7 @@ export type SearchResult = {
   photos: Photo[];
   has_more: boolean;
   total?: number;
-  facets?: Record<"year" | "month" | "state" | "camera" | "person", Facet[]>;
+  facets?: Record<"year" | "month" | "state" | "camera" | "person" | "country" | "region" | "score" | TagCategory, Facet[]>;
 };
 
 export type Face = {
@@ -115,6 +131,51 @@ export type Theme = {
   count: number;
   preparing: boolean;
   prepared?: number;
+};
+
+export type ModelInfo = {
+  id: string; label: string; per_photo: number | null; measured: boolean; estimate_all: number; estimate_remaining: number;
+};
+export type TagRun = {
+  id: number; kind: "pilot" | "backfill"; model: string; batch_id: string; status: string; requests: number;
+  succeeded: number; errored: number; est_cost_usd: number; cost_usd: number | null; created_at: string | null;
+  ended_at: string | null;
+};
+export type TaggingStatus = {
+  config: { model: string | null; daily_cap: number; paused: boolean };
+  state: "not_started" | "pilot" | "running" | "waiting_cap" | "paused" | "done";
+  spent_today: number;
+  total_cost: number;
+  tagged: number;
+  counts: Record<string, number>;
+  models: ModelInfo[];
+  has_key: boolean;
+  runs: TagRun[];
+  pilot_starting: boolean;
+  pilot_error: string | null;
+  worker_error: string | null;
+};
+export type Location = { country: string; region: string; city: string; place_name: string; confidence: string };
+export type PilotAnswer = {
+  id: number; model: string; label: string; status: string; error: string | null; caption: string | null;
+  aesthetic: number | null; rotation: number | null; confidence: string | null; location: Location | null;
+  people_count: number | null; setting: string | null; vehicles: { type: string; make_model: string; color: string }[];
+  tags: string[]; cost_usd: number | null; output_tokens: number | null; best: boolean; flags: string[];
+};
+export type PilotPhoto = { photo_id: number; name: string; thumb_url: string | null; display_url: string; answers: PilotAnswer[]; voted: boolean };
+export type PilotModel = {
+  model: string; label: string; answers: number; done: number; best: number; flagged: number; flags: number;
+  cost: number; rotations: number; per_photo: number | null; estimate_all: number | null; avg_output_tokens: number | null;
+};
+export type Pilot = { photos: PilotPhoto[]; models: PilotModel[]; highlights: number; voted: number; running: number; runs: number };
+export type TagItem = { id: number; category: TagCategory; value: string; key: string; count: number; hidden: boolean };
+export type PhotoAI = {
+  photo_id: number; caption: string | null; scene: string | null; setting: string | null; aesthetic: number | null;
+  rotation: number; tag_status: string;
+  place: { country: string | null; region: string | null; city: string | null; source: string | null };
+  place_name: string | null; model: string | null;
+  tags: { id: number; category: TagCategory; value: string; key: string; source: string }[];
+  removed: { id: number; category: TagCategory; value: string }[];
 };
 
 export type FolderDetail = { folder: Folder; children: Folder[]; breadcrumbs: { id: number; name: string }[] };
@@ -174,7 +235,30 @@ export const api = {
   review: () => request<{ faces: ReviewItem[]; total: number }>("/api/review?limit=20"),
   reviewFace: (id: number, accept: boolean) => post<{ ok: boolean }>(`/api/faces/${id}/review`, { accept }),
   faceStats: () => request<FaceStats>("/api/faces/stats"),
+
+  tagging: () => request<TaggingStatus>("/api/tagging"),
+  taggingSettings: (body: { daily_cap?: number; paused?: boolean }) => post<TaggingStatus["config"]>("/api/tagging/settings", body, "PUT"),
+  startPilot: (size: number) => post<{ starting: boolean; estimate?: number }>("/api/tagging/pilot", { size }),
+  pilot: () => request<Pilot>("/api/tagging/pilot"),
+  vote: (photoId: number, best_id: number | null, flags: Record<number, string[]>) =>
+    post<{ ok: boolean }>(`/api/tagging/pilot/${photoId}/vote`, { best_id, flags }),
+  chooseModel: (model: string) => post<{ model: string; applied: number }>("/api/tagging/choose", { model }),
+  pollTagging: () => post<{ ok: boolean }>("/api/tagging/poll", {}),
+  tags: () => request<TagItem[]>("/api/tags"),
+  editTag: (id: number, body: { value?: string; hidden?: boolean; merge_into_id?: number }) =>
+    post<TagItem>(`/api/tags/${id}`, body, "PATCH"),
+  photoAI: (photoId: number) => request<PhotoAI>(`/api/photos/${photoId}/ai`),
+  editPhotoTags: (photoId: number, body: { add?: string[]; remove?: number[] }) =>
+    post<PhotoAI>(`/api/photos/${photoId}/tags`, body, "PATCH"),
+  rotate: (photoId: number, rotation: number) =>
+    post<{ rotation: number; thumb_url: string | null }>(`/api/photos/${photoId}/rotation`, { rotation }, "PUT"),
 };
+
+export const usd = (n: number | null | undefined, digits = 2) =>
+  n == null ? "–" : `$${n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+
+/** "activity:skiing" -> "skiing" */
+export const tagLabel = (key: string) => key.slice(key.indexOf(":") + 1);
 
 /** "OldenburgWinterPark" -> "Oldenburg Winter Park", "MooseRiverBWCA" -> "Moose River BWCA". */
 export function eventTitle(name: string): string {

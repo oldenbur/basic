@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, eventTitle, Face, Photo } from "../api";
 import { PersonPicker, useFaceRefresh, usePeople, Who } from "./People";
+import { PhotoInfo } from "./PhotoInfo";
 
 export function PhotoTiles({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => void }) {
   return (
@@ -86,10 +87,12 @@ export function Lightbox({ photos, index, onClose, onMove }: {
 }) {
   const p = photos[index];
   const [showFaces, setShowFaces] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return; // typing a name
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return; // typing a name/tag
       if (e.key === "f") setShowFaces((s) => !s);
+      if (e.key === "i") setShowInfo((s) => !s);
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowRight" && index < photos.length - 1) onMove(index + 1);
       if (e.key === "ArrowLeft" && index > 0) onMove(index - 1);
@@ -104,7 +107,7 @@ export function Lightbox({ photos, index, onClose, onMove }: {
 
   return (
     <div className="lightbox" onClick={onClose}>
-      <figure onClick={(e) => e.stopPropagation()}>
+      <figure className={showInfo ? "with-info" : ""} onClick={(e) => e.stopPropagation()}>
         <LargeImage photo={p} overlay={showFaces && p.face_count ? <FaceBoxes photoId={p.id} /> : null} />
         <figcaption>
           {p.event_name && p.event_folder_id != null && <Link to={`/folders/${p.event_folder_id}`}>{eventTitle(p.event_name)}</Link>}
@@ -122,8 +125,12 @@ export function Lightbox({ photos, index, onClose, onMove }: {
               {showFaces ? "Hide faces" : `${p.face_count} face${p.face_count > 1 ? "s" : ""}`}
             </button>
           )}
+          <button className={`link ${showInfo ? "on" : ""}`} onClick={() => setShowInfo((s) => !s)} title="Caption, tags, place (I)">
+            {showInfo ? "Hide details" : "Details"}
+          </button>
           <a href={api.originalUrl(p.id)} target="_blank" rel="noreferrer">Open original</a>
         </figcaption>
+        {showInfo ? <PhotoInfo photoId={p.id} /> : p.caption && <p className="lightbox-caption">{p.caption}</p>}
       </figure>
     </div>
   );

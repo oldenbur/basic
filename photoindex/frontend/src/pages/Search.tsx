@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, Facet, queryParams, Sort, SORT_LABEL, Theme, ThemeQuery } from "../api";
+import { api, CATEGORY_LABEL, Facet, queryParams, Sort, SORT_LABEL, TAG_CATEGORIES, tagLabel, Theme, ThemeQuery } from "../api";
 import { usePeople } from "../components/People";
 import { Lightbox, PhotoTiles } from "../components/Photos";
 
@@ -37,6 +37,10 @@ function compact(q: ThemeQuery): ThemeQuery {
   if (q.people?.length) out.people = q.people;
   if (q.people_all && (q.people?.length ?? 0) > 1) out.people_all = true;
   if (q.group) out.group = q.group;
+  if (q.tags?.length) out.tags = q.tags;
+  if (q.countries?.length) out.countries = q.countries;
+  if (q.regions?.length) out.regions = q.regions;
+  if (q.min_score != null) out.min_score = q.min_score;
   return out;
 }
 
@@ -61,6 +65,22 @@ function Chips({ facets, selected, label, numeric, onToggle }: {
         </button>
       ))}
     </div>
+  );
+}
+
+/** Tag chips for one category: the most common few, the rest behind "more". */
+function TagChips({ facets, selected, onToggle }: {
+  facets: Facet[] | undefined; selected: string[] | undefined; onToggle: (v: string) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const list = facets ?? [];
+  const shown = all ? list : list.filter((f, i) => i < 10 || selected?.includes(String(f.value)));
+  const label = (v: string | number) => list.find((f) => f.value === v)?.label ?? tagLabel(String(v));
+  return (
+    <>
+      <Chips facets={shown} selected={selected} label={label} onToggle={(v) => onToggle(String(v))} />
+      {list.length > 10 && <button className="link small" onClick={() => setAll(!all)}>{all ? "fewer" : `${list.length - 10} more`}</button>}
+    </>
   );
 }
 
@@ -158,9 +178,9 @@ export function Search() {
       <details className="filters" open={wide}>
         <summary>Filters</summary>
         <label className="field">
-          <span>Event names</span>
-          <input type="search" placeholder="e.g. eldora | steamboat" value={text} onChange={(e) => setText(e.target.value)} />
-          <small className="muted">All words must match; <code>|</code> separates alternatives.</small>
+          <span>Words</span>
+          <input type="search" placeholder="e.g. eldora | campfire" value={text} onChange={(e) => setText(e.target.value)} />
+          <small className="muted">Event names, AI captions and tags. All words must match; <code>|</code> separates alternatives.</small>
         </label>
 
         <div className="field">
@@ -199,7 +219,44 @@ export function Search() {
           <span>Where</span>
           <Chips facets={facets?.state} selected={query.states} label={(s) => (s === "abroad" ? "Abroad" : String(s))}
             onToggle={(s) => set({ states: toggle(query.states, String(s)) })} />
+          {(facets?.country?.length ?? 0) > 1 && (
+            <Chips facets={facets?.country} selected={query.countries}
+              onToggle={(c) => set({ countries: toggle(query.countries, String(c)) })} />
+          )}
+          <details>
+            <summary className="small muted">State / region</summary>
+            <Chips facets={facets?.region?.slice(0, 30)} selected={query.regions}
+              onToggle={(r) => set({ regions: toggle(query.regions, String(r)) })} />
+          </details>
         </div>
+
+        {TAG_CATEGORIES.some((c) => facets?.[c]?.length || query.tags?.some((t) => t.startsWith(c + ":"))) && (
+          <div className="field">
+            <span>What (AI tags)</span>
+            {TAG_CATEGORIES.map((c) => (facets?.[c]?.length || query.tags?.some((t) => t.startsWith(c + ":"))) ? (
+              <div key={c} className="tag-facet">
+                <small className="muted">{CATEGORY_LABEL[c]}</small>
+                <TagChips facets={facets?.[c]} selected={query.tags?.filter((t) => t.startsWith(c + ":"))}
+                  onToggle={(t) => set({ tags: toggle(query.tags, t) })} />
+              </div>
+            ) : null)}
+            <small className="muted">Within a group, any tag matches; across groups, all must.</small>
+          </div>
+        )}
+
+        {(facets?.score?.length ?? 0) > 0 && (
+          <div className="field">
+            <span>Quality (AI score)</span>
+            <select value={query.min_score ?? ""} onChange={(e) => set({ min_score: e.target.value ? Number(e.target.value) : null })}>
+              <option value="">Any</option>
+              {[6, 7, 8, 9].map((n) => (
+                <option key={n} value={n}>
+                  {n}+ ({(facets?.score ?? []).filter((f) => Number(f.value) >= n).reduce((a, f) => a + f.count, 0).toLocaleString()})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="field">
           <span>With</span>

@@ -1,8 +1,9 @@
 from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy import (BigInteger, Boolean, Computed, Date, DateTime, Float, ForeignKey, Index, Integer, SmallInteger,
+                        String, Text, UniqueConstraint, func)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -87,10 +88,36 @@ class Photo(Base):
     face_status: Mapped[str] = mapped_column(String, default="pending", server_default="pending", index=True)
     face_count: Mapped[int | None] = mapped_column(Integer)
 
+    # Where (places stage from GPS or the folder's state; the AI's guess fills in when neither says).
+    place_country: Mapped[str | None] = mapped_column(String, index=True)
+    place_region: Mapped[str | None] = mapped_column(String, index=True)
+    place_city: Mapped[str | None] = mapped_column(String)
+    place_source: Mapped[str | None] = mapped_column(String)  # gps | folder | ai
+
+    # Clockwise turn applied to our thumbnail/display copies (the file in Dropbox is never changed).
+    rotation: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+
+    # AI tags (tag stage). tag_status: pending | queued | done | error | follower (copies tag_source_id's tags:
+    # a burst shot or near-duplicate of a photo that was sent instead).
+    tag_status: Mapped[str] = mapped_column(String, default="pending", server_default="pending", index=True)
+    tag_attempts: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+    tag_source_id: Mapped[int | None] = mapped_column(ForeignKey("photos.id", ondelete="SET NULL"))
+    ai_id: Mapped[int | None] = mapped_column(ForeignKey("photo_ai.id", ondelete="SET NULL", use_alter=True))
+    caption: Mapped[str | None] = mapped_column(Text)
+    scene: Mapped[str | None] = mapped_column(String)
+    setting: Mapped[str | None] = mapped_column(String)
+    aesthetic: Mapped[int | None] = mapped_column(SmallInteger, index=True)
+    # Caption, tags and place names, for text search (stemmed: "skiing" finds "skis").
+    ai_terms: Mapped[str | None] = mapped_column(Text)
+    ai_tsv = mapped_column(TSVECTOR, Computed("to_tsvector('english', coalesce(ai_terms, ''))", persisted=True))
+
     error: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
-    __table_args__ = (Index("ix_photos_folder_taken", "folder_id", "taken_at"),)
+    __table_args__ = (
+        Index("ix_photos_folder_taken", "folder_id", "taken_at"),
+        Index("ix_photos_ai_tsv", "ai_tsv", postgresql_using="gin"),
+    )
 
 
 class SyncState(Base):
@@ -151,3 +178,81 @@ class Face(Base):
     # Group of similar unnamed faces from the last clustering run (the group's smallest face id).
     cluster_id: Mapped[int | None] = mapped_column(Integer, index=True)
     ignored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # "not someone I care about"
+
+
+class AppSetting(Base):
+    """Small settings changed from the UI (e.g. the tagging model and daily spend cap)."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[dict] = mapped_column(JSONB)
+
+
+class TagRun(Base):
+    """One Message Batch: a pilot model's share of the pilot, or a slice of the backfill."""
+
+    __tablename__ = "tag_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String)  # pilot | backfill
+    model: Mapped[str] = mapped_column(String)
+    prompt_version: Mapped[int] = mapped_column(Integer)
+    batch_id: Mapped[str | None] = mapped_column(String, unique=True)
+    status: Mapped[str] = mapped_column(String, default="submitted", index=True)  # submitted | ended | failed
+    requests: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded: Mapped[int] = mapped_column(Integer, default=0)
+    errored: Mapped[int] = mapped_column(Integer, default=0)
+    est_cost_usd: Mapped[float] = mapped_column(Float, default=0)
+    cost_usd: Mapped[float | None] = mapped_column(Float)  # from the results' token usage
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class PhotoAI(Base):
+    """One model's answer for one photo. The applied one is photos.ai_id; pilot answers stay for comparison."""
+
+    __tablename__ = "photo_ai"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("tag_runs.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String, default="queued")  # queued | done | error | refused
+    base_rotation: Mapped[int] = mapped_column(SmallInteger, default=0)  # photos.rotation when the image was sent
+    result: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    # Pilot review: you picked this answer as the best of the models, and/or flagged parts of it as wrong.
+    best: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    flags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("run_id", "photo_id"),)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String)  # activity | scene | object | animal | gear | vehicle | landmark
+    value: Mapped[str] = mapped_column(String)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # Merged into another tag: new AI answers with this value land on that tag instead.
+    merged_into_id: Mapped[int | None] = mapped_column(ForeignKey("tags.id", ondelete="SET NULL"))
+
+    __table_args__ = (UniqueConstraint("category", "value"),)
+
+
+class PhotoTag(Base):
+    __tablename__ = "photo_tags"
+
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True, index=True)
+    # "ai", or "user" when you added it or removed it; your edits survive re-tagging.
+    source: Mapped[str] = mapped_column(String, default="ai")
+    removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
