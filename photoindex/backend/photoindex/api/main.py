@@ -19,6 +19,12 @@ from photoindex.worker.stages.link import _update_processing_set
 app = FastAPI(title="PhotoIndex")
 
 
+def _include_routers() -> None:
+    from photoindex.api.people import router
+
+    app.include_router(router)
+
+
 def db() -> Iterator[Session]:
     with session_factory()() as session:
         yield session
@@ -46,7 +52,7 @@ def photo_json(p: Photo, original: Photo | None = None) -> dict:
         burst_group_id=p.burst_group_id, date_mismatch_days=p.date_mismatch_days,
         meta_status=p.meta_status, thumb_status=p.thumb_status, error=p.error,
         thumb_url=storage.image_url(src.thumb_key) if src.thumb_key else None,
-        display_url=f"/api/photos/{src.id}/display",
+        display_url=f"/api/photos/{src.id}/display", face_count=src.face_count,
     )
 
 
@@ -307,3 +313,5 @@ def prepare_theme(theme_id: int, tasks: BackgroundTasks, session: Session = Depe
     tasks.add_task(display.prepare, session_factory(), get_source(), t.id, ids)
     return dict(theme_id=t.id, photos=len(ids))
 
+
+_include_routers()

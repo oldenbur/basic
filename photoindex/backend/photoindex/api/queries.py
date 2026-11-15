@@ -26,7 +26,11 @@ def pipeline_stats(session: Session) -> dict:
           count(*) FILTER (WHERE in_processing_set AND thumb_status = 'done') AS thumbs_done,
           count(*) FILTER (WHERE thumb_status = 'error') AS thumb_errors,
           count(DISTINCT burst_group_id) AS burst_groups,
-          count(*) FILTER (WHERE abs(date_mismatch_days) > 30) AS date_mismatches
+          count(*) FILTER (WHERE abs(date_mismatch_days) > 30) AS date_mismatches,
+          count(*) FILTER (WHERE face_status = 'done') AS faces_done,
+          count(*) FILTER (WHERE face_status = 'error') AS face_errors,
+          (SELECT count(*) FROM faces) AS faces_found,
+          (SELECT count(*) FROM faces WHERE person_id IS NOT NULL) AS faces_named
         FROM photos WHERE NOT deleted AND NOT ignored
     """)).mappings().one()
     return dict(row)

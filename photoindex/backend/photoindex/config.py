@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     public_image_base: str | None = None
 
     workers: int = 8
+    models_dir: str = "~/.cache/photoindex/models"  # face models, downloaded on first use
     exif_head_bytes: int = 128 * 1024
 
 

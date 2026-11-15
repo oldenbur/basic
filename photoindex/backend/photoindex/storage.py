@@ -37,6 +37,10 @@ def put_image(key: str, data: bytes) -> None:
     )
 
 
+def get_bytes(key: str) -> bytes:
+    return _client().get_object(Bucket=get_settings().s3_bucket, Key=key)["Body"].read()
+
+
 def exists(key: str) -> bool:
     try:
         _client().head_object(Bucket=get_settings().s3_bucket, Key=key)
@@ -60,3 +64,7 @@ def thumb_key(photo_id: int) -> str:
 
 def display_key(photo_id: int) -> str:
     return f"display/2048/{photo_id}.jpg"
+
+
+def face_key(face_id: int) -> str:
+    return f"faces/160/{face_id}.jpg"

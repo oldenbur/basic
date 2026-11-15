@@ -16,6 +16,10 @@ const ROWS: [string, string][] = [
   ["thumbs_done", "Thumbnails stored"],
   ["burst_groups", "Burst groups"],
   ["date_mismatches", "Photos >30 days from their folder date"],
+  ["faces_done", "Highlights checked for faces"],
+  ["faces_found", "Faces found"],
+  ["faces_named", "…named"],
+  ["face_errors", "Face errors"],
   ["meta_errors", "EXIF errors"],
   ["thumb_errors", "Thumbnail errors"],
 ];

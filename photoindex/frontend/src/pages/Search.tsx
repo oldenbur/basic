@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, Facet, queryParams, Sort, SORT_LABEL, Theme, ThemeQuery } from "../api";
+import { usePeople } from "../components/People";
 import { Lightbox, PhotoTiles } from "../components/Photos";
 
 const PAGE = 200;
@@ -33,6 +34,9 @@ function compact(q: ThemeQuery): ThemeQuery {
   if (q.has_gps != null) out.has_gps = q.has_gps;
   if (q.highlights_only) out.highlights_only = true;
   if (q.collapse_bursts === false) out.collapse_bursts = false;
+  if (q.people?.length) out.people = q.people;
+  if (q.people_all && (q.people?.length ?? 0) > 1) out.people_all = true;
+  if (q.group) out.group = q.group;
   return out;
 }
 
@@ -98,6 +102,7 @@ function SaveTheme({ query, sort, theme }: { query: ThemeQuery; sort: Sort; them
 
 export function Search() {
   const [params, setParams] = useSearchParams();
+  const people = usePeople();
   const themeId = params.get("theme") ? Number(params.get("theme")) : null;
   const theme = useQuery({ queryKey: ["theme", themeId], queryFn: () => api.theme(themeId!), enabled: themeId != null });
 
@@ -194,6 +199,25 @@ export function Search() {
           <span>Where</span>
           <Chips facets={facets?.state} selected={query.states} label={(s) => (s === "abroad" ? "Abroad" : String(s))}
             onToggle={(s) => set({ states: toggle(query.states, String(s)) })} />
+        </div>
+
+        <div className="field">
+          <span>With</span>
+          <Chips facets={facets?.person?.slice(0, 30)} selected={query.people}
+            label={(id) => facets?.person?.find((f) => f.value === id)?.label ?? people.data?.find((p) => p.id === id)?.name ?? `#${id}`}
+            onToggle={(id) => set({ people: toggle(query.people, Number(id)) })} />
+          {(query.people?.length ?? 0) > 1 && (
+            <div className="row small">
+              <label className="check"><input type="radio" checked={!query.people_all} onChange={() => set({ people_all: false })} /> any of them</label>
+              <label className="check"><input type="radio" checked={!!query.people_all} onChange={() => set({ people_all: true })} /> all together</label>
+            </div>
+          )}
+          <select value={query.group ?? ""} onChange={(e) => set({ group: (e.target.value || null) as ThemeQuery["group"] })}>
+            <option value="">Any number of people</option>
+            <option value="solo">Just one person</option>
+            <option value="small">2–4 people</option>
+            <option value="large">5 or more</option>
+          </select>
         </div>
 
         <div className="field">

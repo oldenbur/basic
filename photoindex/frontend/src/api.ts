@@ -39,6 +39,7 @@ export type Photo = {
   thumb_status: string;
   thumb_url: string | null;
   display_url: string;
+  face_count: number | null;
   // present on search results
   event_name?: string;
   event_folder_id?: number;
@@ -58,6 +59,9 @@ export type ThemeQuery = {
   has_gps?: boolean | null;
   highlights_only?: boolean;
   collapse_bursts?: boolean;
+  people?: number[];
+  people_all?: boolean;
+  group?: "solo" | "small" | "large" | null;
 };
 
 export type Sort = "event_shuffle" | "date" | "shuffle";
@@ -67,13 +71,39 @@ export const SORT_LABEL: Record<Sort, string> = {
   shuffle: "Fully shuffled",
 };
 
-export type Facet = { value: string | number; count: number };
+export type Facet = { value: string | number; count: number; label?: string };
 export type SearchResult = {
   photos: Photo[];
   has_more: boolean;
   total?: number;
-  facets?: Record<"year" | "month" | "state" | "camera", Facet[]>;
+  facets?: Record<"year" | "month" | "state" | "camera" | "person", Facet[]>;
 };
+
+export type Face = {
+  id: number;
+  photo_id: number;
+  box: [number, number, number, number]; // x, y, w, h as fractions of the display image
+  size_px: number;
+  quality: number;
+  crop_url: string | null;
+  person_id: number | null;
+  person_name: string | null;
+  assigned_by: "user" | "auto" | null;
+  cluster_id: number | null;
+  ignored: boolean;
+  suggested_person_id: number | null;
+  suggested_name: string | null;
+  suggested_score: number | null;
+};
+export type Person = { id: number; name: string; faces: number; photos: number; cover_face_id: number | null; cover_url: string | null };
+export type Cluster = { cluster_id: number; size: number; faces: Face[] };
+export type ClusterPage = { clusters: Cluster[]; has_more: boolean; groups: number; ungrouped: number };
+export type ReviewItem = Face & { examples: Face[]; photo_thumb_url: string | null };
+export type FaceStats = {
+  faces: number; named_by_you: number; named_auto: number; to_review: number; unnamed: number; ignored: number;
+  people: number; updating: boolean;
+};
+export type FaceUpdate = { person_id?: number; name?: string; clear?: boolean; ignored?: boolean };
 
 export type Theme = {
   id: number;
@@ -123,6 +153,27 @@ export const api = {
   updateTheme: (id: number, t: ThemeIn) => post<Theme>(`/api/themes/${id}`, t, "PUT"),
   deleteTheme: (id: number) => request<void>(`/api/themes/${id}`, { method: "DELETE" }),
   prepareTheme: (id: number) => post<{ photos: number }>(`/api/themes/${id}/prepare`, {}),
+
+  people: () => request<Person[]>("/api/people"),
+  person: (id: number) => request<Person>(`/api/people/${id}`),
+  renamePerson: (id: number, name: string, cover_face_id: number | null) =>
+    post<Person>(`/api/people/${id}`, { name, cover_face_id }, "PUT"),
+  deletePerson: (id: number) => request<void>(`/api/people/${id}`, { method: "DELETE" }),
+  mergePerson: (id: number, into_id: number) => post<Person>(`/api/people/${id}/merge`, { into_id }),
+  personFaces: (id: number, offset: number) =>
+    request<{ faces: Face[]; has_more: boolean }>(`/api/people/${id}/faces?offset=${offset}&limit=200`),
+  clusters: (offset: number) => request<ClusterPage>(`/api/clusters?offset=${offset}&limit=20`),
+  clusterFaces: (id: number) => request<Face[]>(`/api/clusters/${id}/faces`),
+  assignCluster: (id: number, who: { person_id?: number; name?: string }, exclude_face_ids: number[]) =>
+    post<Person>(`/api/clusters/${id}/assign`, { ...who, exclude_face_ids }),
+  ignoreCluster: (id: number, exclude_face_ids: number[]) =>
+    post<{ ignored: number }>(`/api/clusters/${id}/ignore`, { exclude_face_ids }),
+  regroup: () => post<{ started: boolean }>("/api/clusters/regroup", {}),
+  photoFaces: (photoId: number) => request<Face[]>(`/api/photos/${photoId}/faces`),
+  updateFace: (id: number, body: FaceUpdate) => post<Face>(`/api/faces/${id}`, body, "PATCH"),
+  review: () => request<{ faces: ReviewItem[]; total: number }>("/api/review?limit=20"),
+  reviewFace: (id: number, accept: boolean) => post<{ ok: boolean }>(`/api/faces/${id}/review`, { accept }),
+  faceStats: () => request<FaceStats>("/api/faces/stats"),
 };
 
 /** "OldenburgWinterPark" -> "Oldenburg Winter Park", "MooseRiverBWCA" -> "Moose River BWCA". */

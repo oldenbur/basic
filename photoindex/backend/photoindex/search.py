@@ -13,7 +13,7 @@ from sqlalchemy import DateTime, Select, Text, and_, case, cast, exists, extract
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import Session, aliased
 
-from photoindex.models import Folder, Photo
+from photoindex.models import Face, Folder, Person, Photo
 
 STATE_NAMES = {
     "AL": "alabama", "AK": "alaska", "AZ": "arizona", "AR": "arkansas", "CA": "california", "CO": "colorado",
@@ -64,6 +64,12 @@ class ThemeQuery(BaseModel):
     has_gps: bool | None = None
     highlights_only: bool = False  # only photos you copied to a highlights folder
     collapse_bursts: bool = True
+    people: list[int] = Field(default_factory=list)  # person ids
+    people_all: bool = False  # True: every listed person is in the photo; False: any of them
+    group: str | None = None  # "solo" (1 face), "small" (2-4), "large" (5+)
+
+
+GROUP_SIZES = {"solo": (1, 1), "small": (2, 4), "large": (5, None)}
 
 
 def _text_filter(text: str):
@@ -117,6 +123,15 @@ def _base(q: ThemeQuery) -> Select:
         conds.append(Photo.lat.is_not(None) if q.has_gps else Photo.lat.is_(None))
     if q.highlights_only:
         conds.append(Photo.has_highlight | Photo.is_highlight_copy)
+    if q.people:
+        def with_person(ids):
+            return exists().where(Face.photo_id == Photo.id, Face.person_id.in_(ids), ~Face.ignored)
+        conds.append(and_(*[with_person([p]) for p in q.people]) if q.people_all else with_person(q.people))
+    if q.group in GROUP_SIZES:
+        lo, hi = GROUP_SIZES[q.group]
+        conds.append(Photo.face_count >= lo)
+        if hi is not None:
+            conds.append(Photo.face_count <= hi)
 
     # One row per distinct image ('h' + hash), and per burst when collapsing. NULL || x is NULL, so coalesce
     # falls through to the next key.
@@ -159,15 +174,23 @@ def count(session: Session, q: ThemeQuery) -> int:
 
 # Each facet is counted without its own filter, so picking one state still shows the others to add.
 _FACET_FILTERS = {"year": ("year_from", "year_to"), "month": ("months",), "state": ("states",),
-                  "camera": ("cameras",)}
+                  "camera": ("cameras",), "person": ("people", "people_all")}
 
 
 def facets(session: Session, q: ThemeQuery) -> dict[str, list[dict]]:
-    """Counts per year, month, state ("abroad" for events outside the US) and camera."""
+    """Counts per year, month, state ("abroad" for events outside the US), camera and person."""
     out = {}
     for name, fields in _FACET_FILTERS.items():
         d = _base(q.model_copy(update={f: ThemeQuery.model_fields[f].get_default(call_default_factory=True)
                                        for f in fields})).subquery()
+        if name == "person":
+            rows = session.execute(
+                select(Person.id, Person.name, func.count(func.distinct(Face.photo_id)).label("n"))
+                .join(Face, Face.person_id == Person.id).join(d, d.c.id == Face.photo_id).where(~Face.ignored)
+                .group_by(Person.id).order_by(func.count(func.distinct(Face.photo_id)).desc())
+            ).all()
+            out[name] = [{"value": pid, "label": pname, "count": n} for pid, pname, n in rows]
+            continue
         col = {
             "year": d.c.year,
             "month": extract("month", d.c.taken),

@@ -5,6 +5,9 @@ import { BrowserRouter, NavLink, Outlet, Route, Routes } from "react-router-dom"
 import "./styles.css";
 import { Browse } from "./pages/Browse";
 import { Issues } from "./pages/Issues";
+import { People } from "./pages/People";
+import { PersonView } from "./pages/Person";
+import { Review } from "./pages/Review";
 import { Search } from "./pages/Search";
 import { Slideshow } from "./pages/Slideshow";
 import { Status } from "./pages/Status";
@@ -21,6 +24,7 @@ function Layout() {
           <NavLink to="/" end>Library</NavLink>
           <NavLink to="/search">Search</NavLink>
           <NavLink to="/themes">Themes</NavLink>
+          <NavLink to="/people">People</NavLink>
           <NavLink to="/issues">Naming issues</NavLink>
           <NavLink to="/status">Pipeline</NavLink>
         </nav>
@@ -43,6 +47,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/folders/:id" element={<Browse />} />
             <Route path="/search" element={<Search />} />
             <Route path="/themes" element={<Themes />} />
+            <Route path="/people" element={<People />} />
+            <Route path="/people/review" element={<Review />} />
+            <Route path="/people/:id" element={<PersonView />} />
             <Route path="/issues" element={<Issues />} />
             <Route path="/status" element={<Status />} />
           </Route>

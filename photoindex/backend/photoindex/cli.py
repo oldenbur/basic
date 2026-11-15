@@ -11,7 +11,7 @@ def main() -> None:
     au.add_argument("code", nargs="?", help="authorization code from the Dropbox approval page")
     sub.add_parser("dropbox-check", help="confirm Dropbox access and list the folders under PHOTO_ROOT")
     st = sub.add_parser("stage", help="run one pipeline stage")
-    st.add_argument("name", choices=("sync", "parse", "link", "meta", "thumbs"))
+    st.add_argument("name", choices=("sync", "parse", "link", "meta", "thumbs", "faces", "people"))
     run = sub.add_parser("run", help="run the whole pipeline")
     run.add_argument("--loop", type=int, metavar="SECONDS", help="repeat forever with this pause between runs")
     sub.add_parser("stats", help="print pipeline counts")

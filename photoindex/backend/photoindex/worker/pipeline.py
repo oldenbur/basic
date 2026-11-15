@@ -4,11 +4,11 @@ import time
 from photoindex.config import get_settings
 from photoindex.db import session_scope
 from photoindex.sources import PhotoSource, get_source
-from photoindex.worker.stages import link, meta, parse, sync, thumbs
+from photoindex.worker.stages import faces, link, meta, parse, sync, thumbs
 
 log = logging.getLogger(__name__)
 
-STAGES = ("sync", "parse", "link", "meta", "thumbs")
+STAGES = ("sync", "parse", "link", "meta", "thumbs", "faces", "people")
 
 
 def run_stage(name: str, source: PhotoSource | None = None) -> dict:
@@ -26,6 +26,12 @@ def run_stage(name: str, source: PhotoSource | None = None) -> dict:
                 stats = meta.run(session, source, s.exif_head_bytes, s.workers)
             case "thumbs":
                 stats = thumbs.run(session, source, s.workers)
+            case "faces":
+                stats = faces.run(session, source, s.workers)
+            case "people":  # re-match and regroup faces without detecting anything new
+                from photoindex.faces.people import refresh
+
+                return refresh(session)
             case _:
                 raise ValueError(f"unknown stage {name!r}")
     log.info("%s: %s", name, dict(stats))
@@ -42,6 +48,7 @@ def run_all(source: PhotoSource | None = None) -> dict:
     out["link2"] = run_stage("link", source)
     out["meta2"] = run_stage("meta", source)
     out["thumbs"] = run_stage("thumbs", source)
+    out["faces"] = run_stage("faces", source)
     return out
 
 

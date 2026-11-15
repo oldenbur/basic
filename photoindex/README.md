@@ -14,6 +14,7 @@ and AI tagging. The plan is in `~/.claude/plans/i-have-been-collecting-luminous-
 | `link` | Matches highlight copies to originals: content hash → filename stem → stem + EXIF time. Computes the processing set. | highlights |
 | `meta` | Reads EXIF from the first 128KB of each file: date, GPS, camera. Flags dates that disagree with the event folder; groups bursts. | processing set |
 | `thumbs` | Dropbox-rendered 640px JPEGs → S3/R2, plus a perceptual hash. | processing set |
+| `faces` | Finds faces in the 2048px copy (InsightFace buffalo_l via onnxruntime, on the CPU), stores a 512-d embedding and a 160px crop per face, then matches and regroups (below). | highlights |
 
 The **processing set** is every original that has a highlight copy, plus any highlight with no findable
 original, plus any folder you tick "Process all photos here" on in the UI. Nothing in Dropbox is ever modified.
@@ -32,6 +33,24 @@ original, plus any folder you tick "Process all photos here" on in the UI. Nothi
 - **Large images** (2048px) are rendered by Dropbox the first time a photo is shown (~1s) and kept in S3/R2
   after that. When a highlight was re-exported (edited), the edited copy is what's shown. "Prepare" on a theme
   makes them all ahead of time.
+
+## People (Phase 3)
+
+Everything runs locally; no photo or face data leaves the machine except crops going to your own S3/R2 bucket.
+
+- **Detection:** SCRFD + ArcFace from InsightFace's `buffalo_l` (downloaded on first use to
+  `~/.cache/photoindex/models`, checksums pinned; licensed for non-commercial use). Faces under 40px are skipped.
+- **Groups:** unnamed faces are clustered with HDBSCAN on the full 512-d embeddings. Loose groups (average
+  similarity to their centre under 0.68) are re-clustered on their own, which separates siblings whose childhood
+  faces blur together library-wide; then faces that only loosely resemble their group are taken back out. Tuned
+  for pure groups over complete ones: a person often shows up as several groups, and the same name merges them.
+- **Matching:** a face is labelled automatically only when its 3 nearest faces *you* confirmed for a person
+  average ≥ 0.55 cosine similarity; 0.45–0.55 goes to the review queue. Only your own labels are used as
+  references, so a wrong automatic match can't spread, and "not this person" is remembered per face.
+- **UI:** People (name groups, leave out wrong faces), a person page (photos by year, fix faces, merge, play
+  "through the years"), a Y/N review queue, and face boxes in the lightbox (`F`). Search and themes gain
+  "with" (any / all together) and group-size filters.
+- `photoindex stage faces` finds faces; `photoindex stage people` re-matches and regroups without detecting.
 
 ## Run it on a laptop
 

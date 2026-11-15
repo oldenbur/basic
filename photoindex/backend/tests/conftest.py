@@ -93,8 +93,53 @@ def test_env(monkeypatch, library):
 
     with db.get_engine().begin() as conn:
         conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+        conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
     Base.metadata.create_all(db.get_engine())
     yield library
     db.get_engine().dispose()
     for cached in (config.get_settings, db.get_engine, storage._client):
         cached.cache_clear()
+
+
+class FakeFaceEngine:
+    """Stands in for the face models (the fixture photos are flat colours, not faces). Every photo shows
+    person P; colourful photos also show Q; grey ones also show R, who looks a bit like P (a review-queue case)."""
+
+    def __init__(self):
+        import numpy as np
+
+        rng = np.random.default_rng(1)
+        self.base = {k: v / np.linalg.norm(v) for k, v in zip("PQX", rng.normal(size=(3, 512)))}
+
+    def _vec(self, who: str, seed: int):
+        import numpy as np
+
+        if who == "R":  # ~0.48 similar to P: worth asking about, too loose to join P's group
+            v = self.base["P"] * 0.48 + self.base["X"] * 0.877
+        else:
+            v = self.base[who] + np.random.default_rng(seed).normal(size=512) * 0.005
+        return v / np.linalg.norm(v)
+
+    def detect(self, rgb, min_score=0.5):
+        import numpy as np
+
+        from photoindex.faces.engine import DetectedFace
+
+        r, g, b = (int(c) for c in rgb[-3, -3])  # a corner clear of make_jpeg's pattern: the base colour
+        seed = r * 65536 + g * 256 + b
+        h, w = rgb.shape[:2]
+        colourful = max(r, g, b) - min(r, g, b) > 50
+        who = ["P"] + (["Q"] if colourful else []) + (["R"] if not colourful and max(r, g, b) < 128 else [])
+        lm = np.array([[30, 40], [70, 40], [50, 60], [35, 80], [65, 80]], dtype=np.float32)
+        return [DetectedFace(box=(w * 0.1 + i * w * 0.3, h * 0.1, w * 0.2, h * 0.2), score=0.9, landmarks=lm,
+                             embedding=self._vec(name, seed + i), sharpness=400.0)
+                for i, name in enumerate(who)]
+
+
+@pytest.fixture(autouse=True)
+def fake_face_engine(monkeypatch):
+    from photoindex.faces import engine
+
+    fake = FakeFaceEngine()
+    monkeypatch.setattr(engine, "get_engine", lambda: fake)
+    return fake
