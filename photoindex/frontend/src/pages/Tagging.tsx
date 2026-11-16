@@ -50,7 +50,8 @@ export function Tagging() {
   const total = Object.values(s.counts).reduce((a, b) => a + b, 0);
   const tagged = s.tagged;
   const chosen = s.models.find((m) => m.id === s.config.model);
-  const hasPilot = s.runs.some((r) => r.kind === "pilot");
+  const pilotRuns = s.runs.filter((r) => r.kind === "pilot");
+  const hasPilot = pilotRuns.length > 0;
   const pilotEstimate = s.models.reduce((sum, m) => sum + (m.per_photo ?? m.estimate_all / Math.max(total, 1)) * size, 0);
 
   return (
@@ -120,7 +121,20 @@ export function Tagging() {
           </table>
           <p className="muted small">Estimates until the pilot measures real token counts. Batch prices (half the list price).</p>
         </section>
-      ) : null}
+      ) : (
+        <section className="panel">
+          <h2>Pilot</h2>
+          {pilotRuns.some((r) => r.status !== "ended" && r.status !== "failed") ? (
+            <p>Sent {pilotRuns[0]?.requests ?? 0} photos to each model. Answers usually come back within the hour; you can start comparing the ones that are in.</p>
+          ) : (
+            <p>
+              All three models have answered ({pilotRuns.reduce((n, r) => n + r.succeeded, 0).toLocaleString()} answers,{" "}
+              {usd(pilotRuns.reduce((n, r) => n + (r.cost_usd ?? 0), 0))}). Compare them side by side, then choose the model to tag everything with.
+            </p>
+          )}
+          <Link className="button primary" to="/tagging/compare">Compare models →</Link>
+        </section>
+      )}
 
       {s.runs.length > 0 && (
         <>
