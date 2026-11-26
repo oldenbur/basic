@@ -1,4 +1,4 @@
-"""Fetch Dropbox-rendered 640px thumbnails for the processing set, store them in S3/R2, compute phash."""
+"""Fetch Dropbox-rendered 640px thumbnails for the processing set (and the album prints), store them in S3/R2, compute phash."""
 
 import io
 import logging
@@ -47,7 +47,7 @@ def run(session: Session, source: PhotoSource, workers: int) -> Counter:
         return out
 
     with ThreadPoolExecutor(workers) as pool:
-        while batch := claim(session, "thumb_status", "in_processing_set", BATCH):
+        while batch := claim(session, "thumb_status", "in_processing_set OR album_scan", BATCH):
             rotations = dict(session.execute(
                 select(Photo.id, Photo.rotation).where(Photo.id.in_([pid for pid, _ in batch]))).all())
             batch = [(pid, path, rotations[pid]) for pid, path in batch]

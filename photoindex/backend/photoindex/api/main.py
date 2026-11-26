@@ -29,8 +29,9 @@ app = FastAPI(title="PhotoIndex", lifespan=lifespan)
 
 
 def _include_routers() -> None:
-    from photoindex.api import people, tagging
+    from photoindex.api import albums, people, tagging
 
+    app.include_router(albums.router)
     app.include_router(people.router)
     app.include_router(tagging.router)
 

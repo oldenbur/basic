@@ -3,6 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, NavLink, Outlet, Route, Routes } from "react-router-dom";
 import "./styles.css";
+import { Albums } from "./pages/Albums";
 import { Browse } from "./pages/Browse";
 import { Compare } from "./pages/Compare";
 import { Issues } from "./pages/Issues";
@@ -29,6 +30,7 @@ function Layout() {
           <NavLink to="/themes">Themes</NavLink>
           <NavLink to="/people">People</NavLink>
           <NavLink to="/tagging">AI tags</NavLink>
+          <NavLink to="/albums">Old albums</NavLink>
           <NavLink to="/issues">Naming issues</NavLink>
           <NavLink to="/status">Pipeline</NavLink>
         </nav>
@@ -57,6 +59,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/tagging" element={<Tagging />} />
             <Route path="/tagging/compare" element={<Compare />} />
             <Route path="/tags" element={<Tags />} />
+            <Route path="/albums" element={<Albums />} />
             <Route path="/issues" element={<Issues />} />
             <Route path="/status" element={<Status />} />
           </Route>

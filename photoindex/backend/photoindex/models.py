@@ -56,6 +56,11 @@ class Photo(Base):
     deleted: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # In a folder that doesn't follow the naming scheme: kept in the index but never linked or processed.
     ignored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # A single print in one of the scanned print albums (settings.album_folders). Still ignored by the library,
+    # but thumbnailed and searched for faces so the albums can be dated and split into events.
+    album_scan: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
+    album_event_id: Mapped[int | None] = mapped_column(ForeignKey("album_events.id", ondelete="SET NULL",
+                                                                  use_alter=True), index=True)
 
     # Highlights: a copy in a highlights folder points at the canonical original it duplicates.
     is_highlight_copy: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -256,3 +261,81 @@ class PhotoTag(Base):
     # "ai", or "user" when you added it or removed it; your edits survive re-tagging.
     source: Mapped[str] = mapped_column(String, default="ai")
     removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+
+class AlbumEvent(Base):
+    """A run of consecutive prints in a scanned album that look like one event (one roll, one occasion)."""
+
+    __tablename__ = "album_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    album: Mapped[str] = mapped_column(String, index=True)  # folder name, e.g. albums3
+    seq: Mapped[int] = mapped_column(Integer)  # position in the album, from 1
+    size: Mapped[int] = mapped_column(Integer)
+    first_name: Mapped[str] = mapped_column(String)  # file names of its first and last prints
+    last_name: Mapped[str] = mapped_column(String)
+    # Why it starts here: the strongest signals at the boundary before it (colour, print size, page, people).
+    break_reasons: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")
+    break_score: Mapped[float | None] = mapped_column(Float)
+    # Who is in it: person id -> number of prints with a confident match ({"12": 3}).
+    people: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
+    has_me: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # settings.album_me
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("album", "seq"),)
+
+
+class AlbumFace(Base):
+    """A face in an album print. Kept apart from `faces` so childhood photos never land on the People pages
+    (or get matched to look-alike children of the next generation). Matched against the faces you named there."""
+
+    __tablename__ = "album_faces"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), index=True)
+    # Clockwise turn applied to the print before detection (prints scanned sideways); the box is in that frame.
+    rotation: Mapped[int] = mapped_column(SmallInteger, default=0, server_default="0")
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    w: Mapped[float] = mapped_column(Float)
+    h: Mapped[float] = mapped_column(Float)
+    size_px: Mapped[int] = mapped_column(Integer)
+    det_score: Mapped[float] = mapped_column(Float)
+    quality: Mapped[float] = mapped_column(Float)
+    embedding: Mapped[list[float]] = mapped_column(Vector(512))
+    crop_key: Mapped[str | None] = mapped_column(String)
+    # Closest named person and how close (cosine, top-3 mean); `person_id` is set only when you confirm.
+    match_person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id", ondelete="SET NULL"), index=True)
+    match_score: Mapped[float | None] = mapped_column(Float)
+    person_id: Mapped[int | None] = mapped_column(ForeignKey("people.id", ondelete="SET NULL"), index=True)
+    # Group of similar unnamed album faces (its smallest face id), so childhood faces can be named a group at a time.
+    cluster_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    ignored: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")  # no one to name
+
+
+class AlbumRef(Base):
+    """Something recognisable that pins prints to a period: a house you lived in, a grandparent's home, a school,
+    a trip. Its example prints go to the dating model as reference images."""
+
+    __tablename__ = "album_refs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String)  # home | family | school | trip | other
+    label: Mapped[str] = mapped_column(String, unique=True)
+    # When it applies (a house: the years you lived there; a trip: its month). Either end may be open.
+    start: Mapped[date | None] = mapped_column(Date)
+    end: Mapped[date | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)  # what to look for, e.g. "white colonial, black shutters"
+    sort: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+
+class AlbumRefExample(Base):
+    """A print that shows a reference. Proposed ones wait for you; only confirmed ones are used."""
+
+    __tablename__ = "album_ref_examples"
+
+    ref_id: Mapped[int] = mapped_column(ForeignKey("album_refs.id", ondelete="CASCADE"), primary_key=True)
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True, index=True)
+    status: Mapped[str] = mapped_column(String, default="proposed")  # proposed | confirmed | rejected
+    source: Mapped[str] = mapped_column(String, default="user")  # user | claude
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

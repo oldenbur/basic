@@ -178,6 +178,30 @@ export type PhotoAI = {
   removed: { id: number; category: TagCategory; value: string }[];
 };
 
+export type AlbumEvent = {
+  id: number; seq: number; size: number; first_name: string; last_name: string; break_reasons: string[];
+  break_score: number | null; has_me: boolean; people: { id: number; name: string; count: number }[];
+  photos: { id: number; name: string; faces: number | null; thumb_url: string | null }[];
+};
+export type Albums = {
+  albums: { album: string; prints: number; faces_done: number; events: number; events_with_me: number }[];
+  album: string | null; faces: number; events: AlbumEvent[];
+};
+
+export type RefKind = "home" | "family" | "school" | "event" | "trip" | "other";
+export type RefExample = { photo_id: number; name: string; album: string; status: "proposed" | "confirmed" | "rejected"; source: string; thumb_url: string | null };
+export type AlbumRef = { id: number; kind: RefKind; label: string; notes: string | null; start: string | null; end: string | null; examples: RefExample[] };
+export type RefIn = { kind?: RefKind; label?: string; start?: string | null; end?: string | null; notes?: string | null };
+export type FaceGroup = {
+  id: number; size: number; guess_id: number | null; guess_name: string | null; guess_count: number;
+  first: string; last: string; albums: string[];
+  faces: { id: number; photo_id: number; crop_url: string | null; where: string }[];
+};
+export type FaceGroups = {
+  total: number; groups: FaceGroup[]; named: { id: number; name: string; count: number }[];
+  people: { id: number; name: string }[];
+};
+
 export type FolderDetail = { folder: Folder; children: Folder[]; breadcrumbs: { id: number; name: string }[] };
 export type PhotoPage = { photos: Photo[]; has_more: boolean };
 export type Stats = Record<string, number>;
@@ -235,6 +259,23 @@ export const api = {
   review: () => request<{ faces: ReviewItem[]; total: number }>("/api/review?limit=20"),
   reviewFace: (id: number, accept: boolean) => post<{ ok: boolean }>(`/api/faces/${id}/review`, { accept }),
   faceStats: () => request<FaceStats>("/api/faces/stats"),
+
+  albums: (album?: string) => request<Albums>(`/api/albums${album ? `?album=${encodeURIComponent(album)}` : ""}`),
+  albumRefs: () => request<AlbumRef[]>("/api/albums/refs"),
+  createRef: (body: RefIn) => post<AlbumRef>("/api/albums/refs", body),
+  editRef: (id: number, body: RefIn) => post<{ ok: boolean }>(`/api/albums/refs/${id}`, body, "PATCH"),
+  deleteRef: (id: number) => request<void>(`/api/albums/refs/${id}`, { method: "DELETE" }),
+  setExample: (refId: number, photoId: number, status: RefExample["status"]) =>
+    post<{ ok: boolean }>(`/api/albums/refs/${refId}/examples/${photoId}`, { status }, "PUT"),
+  removeExample: (refId: number, photoId: number) =>
+    request<void>(`/api/albums/refs/${refId}/examples/${photoId}`, { method: "DELETE" }),
+  faceGroups: (offset: number) => request<FaceGroups>(`/api/albums/face-groups?offset=${offset}&limit=10`),
+  faceGroupFaces: (id: number) => request<FaceGroup["faces"]>(`/api/albums/face-groups/${id}/faces`),
+  nameFaceGroup: (id: number, who: { person_id?: number; name?: string }, exclude_face_ids: number[]) =>
+    post<{ named: number; person_id: number }>(`/api/albums/face-groups/${id}/assign`, { ...who, exclude_face_ids }),
+  ignoreFaceGroup: (id: number, exclude_face_ids: number[]) =>
+    post<{ ignored: number }>(`/api/albums/face-groups/${id}/ignore`, { exclude_face_ids }),
+  regroupAlbumFaces: () => post<Record<string, number>>("/api/albums/face-groups/regroup", {}),
 
   tagging: () => request<TaggingStatus>("/api/tagging"),
   taggingSettings: (body: { daily_cap?: number; paused?: boolean }) => post<TaggingStatus["config"]>("/api/tagging/settings", body, "PUT"),

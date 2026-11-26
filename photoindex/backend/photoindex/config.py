@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     models_dir: str = "~/.cache/photoindex/models"  # face models, downloaded on first use
     exif_head_bytes: int = 128 * 1024
 
+    # Scanned print albums under photo_root: thumbnailed, face-matched and split into events for dating.
+    album_folders: str = "albums1,albums2,albums3"
+    album_me: str = "Paul Oldenburg"  # whose presence decides which later events are kept
+
+    @property
+    def album_folder_list(self) -> tuple[str, ...]:
+        return tuple(a.strip() for a in self.album_folders.split(",") if a.strip())
+
     # AI tagging (Claude Message Batches API). The model and daily spend cap are chosen in the UI.
     anthropic_api_key: str = ""
     tag_batch_size: int = 500  # photos per batch: ~150KB of image each, well under the 256MB batch limit

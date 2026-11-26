@@ -275,3 +275,29 @@ input.narrow { width: 5rem; }
 .tag-chip { display: inline-flex; gap: 0.15rem; align-items: center; border: 1px solid var(--border); }
 .tag-chip button.link { padding: 0 0.15rem; color: var(--muted); }
 .photo-info input { width: 12rem; }
+
+/* Old albums: one block per event, small thumbnails in album order */
+.album-event { border-top: 1px solid var(--border); padding: 0.6rem 0; }
+.album-event header { display: flex; flex-wrap: wrap; gap: 0.4rem 0.8rem; align-items: baseline; margin-bottom: 0.35rem; }
+.album-event .strip { display: flex; flex-wrap: wrap; gap: 3px; }
+.album-event .strip img { height: 72px; width: auto; max-width: 110px; object-fit: cover; border-radius: 2px; background: var(--border); }
+.album-event .me { color: var(--accent); font-weight: 600; }
+.album-event .strip img.picked { outline: 3px solid var(--accent); outline-offset: 1px; }
+.album-event .strip img { cursor: pointer; }
+.pick-bar { position: sticky; top: 0; z-index: 5; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.pick-bar img { height: 56px; border-radius: 2px; }
+.ref-card { border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; margin-bottom: 0.75rem; }
+.ref-card .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0.5rem; }
+.ref-example { position: relative; display: flex; flex-direction: column; gap: 2px; font-size: 0.75rem; }
+.ref-example img { height: 110px; width: auto; max-width: 170px; object-fit: cover; border-radius: 3px; border: 3px solid transparent; }
+.ref-example.confirmed img { border-color: var(--accent); }
+.ref-example.proposed img { border-color: #d9a400; border-style: dashed; }
+.ref-example.rejected img { opacity: 0.35; }
+.ref-example .row { gap: 0.25rem; }
+.face-group { border-top: 1px solid var(--border); padding: 0.75rem 0; }
+.face-group .faces { display: flex; flex-wrap: wrap; gap: 4px; margin: 0.4rem 0; }
+.face-group .faces img { width: 72px; height: 72px; object-fit: cover; border-radius: 3px; cursor: pointer; }
+.face-group .faces img.out { opacity: 0.25; outline: 2px solid #c0392b; }
+.tabs { display: flex; gap: 0.25rem; margin: 0.5rem 0 0.75rem; border-bottom: 1px solid var(--border); }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 0.4rem 0.8rem; }
+.tabs button.on { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }

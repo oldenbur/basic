@@ -11,7 +11,8 @@ def main() -> None:
     au.add_argument("code", nargs="?", help="authorization code from the Dropbox approval page")
     sub.add_parser("dropbox-check", help="confirm Dropbox access and list the folders under PHOTO_ROOT")
     st = sub.add_parser("stage", help="run one pipeline stage")
-    st.add_argument("name", choices=("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag"))
+    st.add_argument("name", choices=("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag",
+                                        "album_faces", "album_events"))
     tg = sub.add_parser("tag", help="AI tagging: pilot, status, choose a model, collect results")
     tg_sub = tg.add_subparsers(dest="tag_cmd", required=True)
     tp = tg_sub.add_parser("pilot", help="send the same highlights to every model for comparison")

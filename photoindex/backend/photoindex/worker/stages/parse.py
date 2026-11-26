@@ -10,7 +10,7 @@ from photoindex.naming import FolderParse, classify
 from photoindex.search import folder_terms
 
 
-def run(session: Session, root: str) -> Counter:
+def run(session: Session, root: str, album_folders: tuple[str, ...] = ()) -> Counter:
     rows = session.execute(
         select(Folder.id, Folder.path_lower, Folder.path_display, Folder.parent_path_lower)
         .where(~Folder.deleted)
@@ -48,6 +48,15 @@ def run(session: Session, root: str) -> Counter:
         ) new
         WHERE new.id = ph.id AND ph.ignored IS DISTINCT FROM new.v
     """))
+    # Prints in the scanned albums: still ignored by the library, but prepared for dating (photoindex.albums).
+    album_dirs = [f"{root.rstrip('/')}/{a}".lower() for a in album_folders]
+    session.execute(text("""
+        UPDATE photos SET album_scan = new.v FROM (
+            SELECT id, (parent_path_lower = ANY(:dirs) AND NOT deleted) AS v FROM photos
+        ) new
+        WHERE new.id = photos.id AND photos.album_scan IS DISTINCT FROM new.v
+    """), {"dirs": album_dirs})
+    stats["album_scans"] = session.scalar(text("SELECT count(*) FROM photos WHERE album_scan"))
     stats["photos_ignored"] = session.scalar(text("SELECT count(*) FROM photos WHERE ignored AND NOT deleted"))
     session.commit()
     return stats

@@ -8,7 +8,7 @@ from photoindex.worker.stages import faces, link, meta, parse, places, sync, thu
 
 log = logging.getLogger(__name__)
 
-STAGES = ("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag")
+STAGES = ("sync", "parse", "link", "meta", "places", "thumbs", "faces", "people", "tag", "album_faces", "album_events")
 
 
 def run_stage(name: str, source: PhotoSource | None = None) -> dict:
@@ -19,7 +19,7 @@ def run_stage(name: str, source: PhotoSource | None = None) -> dict:
             case "sync":
                 stats = sync.run(session, source)
             case "parse":
-                stats = parse.run(session, source.root)
+                stats = parse.run(session, source.root, s.album_folder_list)
             case "link":
                 stats = link.run(session)
             case "meta":
@@ -34,6 +34,14 @@ def run_stage(name: str, source: PhotoSource | None = None) -> dict:
                 from photoindex.faces.people import refresh
 
                 return refresh(session)
+            case "album_faces":  # faces in the scanned album prints, matched to the people you've named
+                from photoindex.albums import faces as album_faces
+
+                stats = album_faces.run(session, source, s.workers)
+            case "album_events":  # split the albums into events
+                from photoindex.albums import events as album_events
+
+                stats = album_events.run(session, s.album_me)
             case "tag":  # collect finished AI batches and send more (the API server also does this every minute)
                 from photoindex.tagging.batches import tick
 
