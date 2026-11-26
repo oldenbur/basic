@@ -202,6 +202,32 @@ export type FaceGroups = {
   people: { id: number; name: string }[];
 };
 
+export type DateRun = {
+  id: number; kind: "pilot" | "full"; model: string; status: string; requests: number; succeeded: number; errored: number;
+  est_cost_usd: number; cost_usd: number | null; created_at: string | null;
+};
+export type DatingStatus = { runs: DateRun[]; dated: number; prints: number; has_key: boolean; pilot_max_usd: number };
+export type DatingEstimate = { events: number; prints: number; low: number; high: number };
+export type PrintDate = {
+  photo_id: number; name: string; thumb_url: string | null; best?: string | null; earliest?: string | null;
+  latest?: string | null; confidence?: string | null; reference?: string | null; ages?: { name: string; age: number }[];
+  different_occasion?: boolean; caption?: string | null;
+};
+export type DatedEvent = {
+  id: number; album: string; seq: number; status: string; error: string | null; cost_usd: number | null;
+  summary: string | null; best: string | null; earliest: string | null; latest: string | null;
+  confidence: string | null; clues: string | null; prints: PrintDate[];
+};
+
+export type PlacementYear = { year: number; include?: number; older?: number; review?: number; skip?: number };
+export type PlacedPrint = { photo_id: number; name: string; month: string; status: string; source: string; thumb_url: string | null };
+export type PlacedEvent = {
+  key: string; album: string; label: string; summary: string | null; has_me: boolean; month: string; first: string; last: string;
+  your_month: string | null; decision: "include" | "skip" | "undecided" | null; waits: boolean;
+  prev: string | null; next: string | null; prints: PlacedPrint[];
+};
+export type Placements = { years: PlacementYear[]; events: PlacedEvent[] };
+
 export type FolderDetail = { folder: Folder; children: Folder[]; breadcrumbs: { id: number; name: string }[] };
 export type PhotoPage = { photos: Photo[]; has_more: boolean };
 export type Stats = Record<string, number>;
@@ -275,6 +301,17 @@ export const api = {
     post<{ named: number; person_id: number }>(`/api/albums/face-groups/${id}/assign`, { ...who, exclude_face_ids }),
   ignoreFaceGroup: (id: number, exclude_face_ids: number[]) =>
     post<{ ignored: number }>(`/api/albums/face-groups/${id}/ignore`, { exclude_face_ids }),
+  dating: () => request<DatingStatus>("/api/albums/dating"),
+  datingEstimate: (kind: "pilot" | "rest") => request<DatingEstimate>(`/api/albums/dating/estimate?kind=${kind}`),
+  startDatingPilot: (max_usd: number) => post<DateRun>("/api/albums/dating/pilot", { max_usd }),
+  pollDating: () => post<Record<string, number>>("/api/albums/dating/poll", {}),
+  datingResults: () => request<DatedEvent[]>("/api/albums/dating/results"),
+  placements: (view: "review" | "all", year?: number) =>
+    request<Placements>(`/api/albums/placements?view=${view}${year ? `&year=${year}` : ""}`),
+  runPlacement: () => post<Record<string, number>>("/api/albums/placements/run", {}),
+  movePrints: (photo_ids: number[], to: string) => post<{ to: string; moved: number }>("/api/albums/placements/move", { photo_ids, to }),
+  editEvent: (key: string, edit: { status?: "include" | "skip" | "auto"; month?: string }) =>
+    post<{ key: string }>(`/api/albums/placements/events/${key}`, edit, "PUT"),
   regroupAlbumFaces: () => post<Record<string, number>>("/api/albums/face-groups/regroup", {}),
 
   tagging: () => request<TaggingStatus>("/api/tagging"),

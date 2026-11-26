@@ -301,3 +301,13 @@ input.narrow { width: 5rem; }
 .tabs { display: flex; gap: 0.25rem; margin: 0.5rem 0 0.75rem; border-bottom: 1px solid var(--border); }
 .tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 0.4rem 0.8rem; }
 .tabs button.on { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.dated-event { border-top: 1px solid var(--border); padding: 0.75rem 0; }
+.dated-event .prints { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.4rem; }
+.dated-print { width: 150px; font-size: 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+.dated-print img { width: 150px; height: 112px; object-fit: cover; border-radius: 3px; }
+.dated-print.odd img { outline: 3px solid #d9a400; }
+.conf-high { color: var(--accent); font-weight: 600; }
+.conf-low { color: #b05a00; }
+.dated-print.pickable { cursor: pointer; }
+.dated-print.picked img { outline: 3px solid var(--accent); }
+tr.selected td { background: var(--surface-2, rgba(127,127,127,0.12)); }

@@ -36,11 +36,24 @@ class _TagWorker:
                 with session_scope() as session:
                     self.last = tick(session, source)
                 self.last_error = None
+                self._album_dating()
             except Exception as e:  # keep going; a network blip or a full cap shouldn't stop the worker
                 log.exception("tag worker tick failed")
                 self.last_error = str(e)[:300]
             self._wake.wait(INTERVAL)
             self._wake.clear()
+
+
+    @staticmethod
+    def _album_dating() -> None:
+        """Collect finished album-dating batches too (photoindex.albums.dating)."""
+        from photoindex.albums import dating
+
+        try:
+            with session_scope() as session:
+                dating.poll(session)
+        except Exception:  # noqa: BLE001  tagging shouldn't stop because dating failed
+            log.exception("album dating poll failed")
 
 
 worker = _TagWorker()

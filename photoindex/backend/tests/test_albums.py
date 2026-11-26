@@ -140,3 +140,156 @@ def test_name_an_album_face_group(album_client):
     d = c.get("/api/albums/face-groups").json()
     assert [(n["name"], n["count"]) for n in d["named"]] == [("Young P", g["size"] - 1)]
     assert g["id"] not in [x["id"] for x in d["groups"]]
+
+
+class FakeDatingBatches:
+    """Answers each event request with one date per print; print 2 of every event is flagged as a different occasion."""
+
+    def __init__(self):
+        self.batches: dict[str, list[dict]] = {}
+
+    def create(self, requests):
+        from types import SimpleNamespace
+
+        bid = f"msgbatch_d{len(self.batches) + 1}"
+        self.batches[bid] = list(requests)
+        return SimpleNamespace(id=bid, processing_status="in_progress")
+
+    def retrieve(self, batch_id):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(id=batch_id, processing_status="ended")
+
+    def results(self, batch_id):
+        import json
+        from types import SimpleNamespace as NS
+
+        for req in self.batches[batch_id]:
+            texts = [b["text"] for b in req["params"]["messages"][0]["content"] if b["type"] == "text"]
+            n = sum(t.startswith("Print ") for t in texts)
+            answer = {"event": {"summary": "Christmas", "best": "1984-12", "earliest": "1984-11", "latest": "1985-01",
+                                "confidence": "medium", "clues": "Joe looks about 7 months old"},
+                      "prints": [{"print": i, "best": "1984-12", "earliest": "1985-01", "latest": "1984-11",
+                                  "confidence": "medium", "reference": "Test house" if i == 1 else "",
+                                  "ages": [{"name": "Joe", "age": 0.6}], "different_occasion": i == 2,
+                                  "caption": f"print {i}"} for i in range(1, n + 1)]
+                      + [{"print": n + 5, "best": "1984-12", "earliest": "", "latest": "", "confidence": "low",
+                          "reference": "", "ages": [], "different_occasion": False, "caption": "out of range"}]}
+            msg = NS(stop_reason="end_turn", content=[NS(type="text", text=json.dumps(answer))],
+                     usage=NS(input_tokens=4000, output_tokens=2500, cache_read_input_tokens=12000,
+                              cache_creation_input_tokens=0))
+            yield NS(custom_id=req["custom_id"], result=NS(type="succeeded", message=msg))
+
+
+def test_dating_pilot_round_trip(album_client, monkeypatch):
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from photoindex.albums import dating
+    from photoindex.db import session_scope
+    from photoindex.models import AlbumDateAnswer, AlbumPrintDate
+    from photoindex.tagging import client
+
+    fake = FakeDatingBatches()
+    monkeypatch.setattr(client, "get_client", lambda: SimpleNamespace(messages=SimpleNamespace(batches=fake)))
+    c = album_client
+    ref = c.post("/api/albums/refs", json={"kind": "home", "label": "Test house", "start": "1983-12-01"}).json()
+    first = c.get("/api/albums").json()["events"][0]["photos"][0]["id"]
+    c.put(f"/api/albums/refs/{ref['id']}/examples/{first}", json={"status": "confirmed"})
+
+    with session_scope() as s:
+        events = dating.pilot_events(s, n=2)
+        assert events
+        try:
+            dating.submit(s, "pilot", events, max_usd=0.0001)
+            raise AssertionError("expected the spend limit to stop it")
+        except dating.SpendLimit:
+            pass
+        run = dating.submit(s, "pilot", events, max_usd=5)
+        sent = fake.batches[run.batch_id]
+        params = sent[0]["params"]
+        assert params["model"] == "claude-opus-5-5" and params["output_config"]["effort"] == "medium"
+        content = params["messages"][0]["content"]
+        assert any(b.get("cache_control") for b in content)  # the shared reference prefix is cached
+        assert any("Test house" in b.get("text", "") for b in content)
+        assert "Rico (Eric Oldenburg): born 1978-04" in params["system"][0]["text"]
+        assert dating.poll(s)["done"] == len(events)
+        answers = s.scalars(select(AlbumDateAnswer)).all()
+        assert all(a.status == "done" and a.cost_usd > 0 for a in answers)
+        rows = s.scalars(select(AlbumPrintDate)).all()
+        assert len(rows) == sum(len(a.photo_ids) for a in answers)  # the out-of-range print is dropped
+        r = next(r for r in rows if r.photo_id == answers[0].photo_ids[0])
+        assert (str(r.best), str(r.earliest), str(r.latest)) == ("1984-12-01", "1984-11-01", "1985-01-01")  # swapped
+        assert r.ref_label == "Test house" and r.ages == [{"name": "Joe", "age": 0.6}]
+        assert any(r.different_occasion for r in rows)
+        assert dating.poll(s) == {}  # nothing left to collect
+
+
+def test_placement_smoothing():
+    from photoindex.albums.placement import EventIn, PrintIn, place, to_date, to_index
+
+    m = lambda y, mo: to_index(date(y, mo, 1))  # noqa: E731
+    evs = [
+        EventIn(1, [PrintIn(1, m(1984, 10), m(1984, 9), m(1984, 11), "high"),
+                    PrintIn(2, m(1984, 10), m(1984, 9), m(1984, 11), "medium")], "high"),
+        # low confidence, guessed too late, but its own range allows the neighbours' span
+        EventIn(2, [PrintIn(3, m(1987, 6), m(1983, 1), m(1990, 1), "low"),
+                    PrintIn(4, None),  # skipped by the model: takes the event's month
+                    PrintIn(5, m(1960, 6), m(1955, 1), m(1965, 1), "low", odd=True)], "low"),
+        EventIn(3, [PrintIn(6, m(1985, 5), m(1985, 5), m(1985, 5), "high")], "high"),
+        # a print matched to a reference whose dates disagree is kept inside them
+        EventIn(4, [PrintIn(7, m(1980, 1), None, None, "medium", ref=(m(1985, 12), None))], "medium"),
+    ]
+    out = place(evs)
+    assert to_date(out[3].month) == date(1985, 5, 1) and out[3].source == "neighbours"
+    assert out[4].month == out[3].month
+    assert to_date(out[5].month) == date(1960, 6, 1)  # a different occasion keeps its own date
+    assert to_date(out[1].month) == date(1984, 10, 1) and out[1].source == "model"
+    assert to_date(out[7].month) == date(1985, 12, 1)
+
+
+from datetime import date  # noqa: E402
+
+
+def test_split_move_and_edit_events(album_client, monkeypatch):
+    from types import SimpleNamespace
+
+    from photoindex.albums import dating
+    from photoindex.db import session_scope
+    from photoindex.tagging import client
+
+    fake = FakeDatingBatches()
+    monkeypatch.setattr(client, "get_client", lambda: SimpleNamespace(messages=SimpleNamespace(batches=fake)))
+    c = album_client
+    with session_scope() as s:
+        dating.submit(s, "pilot", dating.undated_events(s), max_usd=5)
+        dating.poll(s)
+    assert c.post("/api/albums/placements/run").status_code == 200
+    events = c.get("/api/albums/placements", params={"view": "all"}).json()["events"]
+    big = max(events, key=lambda e: len(e["prints"]))
+    assert len(big["prints"]) >= 2 and all(p["month"] == "1984-12" for p in big["prints"])
+    moved = [big["prints"][-1]["photo_id"]]
+
+    r = c.post("/api/albums/placements/move", json={"photo_ids": moved, "to": "new"}).json()
+    key = r["to"]
+    assert key.startswith("g")
+    events = {e["key"]: e for e in c.get("/api/albums/placements", params={"view": "all"}).json()["events"]}
+    assert [p["photo_id"] for p in events[key]["prints"]] == moved
+    assert moved[0] not in [p["photo_id"] for p in events[big["key"]]["prints"]]
+    assert events[key]["prev"] == big["key"]  # it sits after the event it came from
+
+    # a month and a decision of its own, kept across reruns
+    c.put(f"/api/albums/placements/events/{key}", json={"month": "1996-07", "status": "skip"})
+    c.post("/api/albums/placements/run")
+    e = {e["key"]: e for e in c.get("/api/albums/placements", params={"view": "all"}).json()["events"]}[key]
+    assert e["prints"][0]["month"] == "1996-07" and e["prints"][0]["status"] == "skip" and e["decision"] == "skip"
+    c.put(f"/api/albums/placements/events/{key}", json={"status": "auto"})
+    e = {e["key"]: e for e in c.get("/api/albums/placements").json()["events"]}[key]
+    assert e["decision"] == "undecided"  # 1996 and nobody recognised: back on the review list
+
+    # moving it back where it was dated drops the empty group
+    assert c.post("/api/albums/placements/move", json={"photo_ids": moved, "to": big["key"]}).status_code == 200
+    keys = [e["key"] for e in c.get("/api/albums/placements", params={"view": "all"}).json()["events"]]
+    assert key not in keys
+    assert c.post("/api/albums/placements/move", json={"photo_ids": moved, "to": "g999"}).status_code == 404

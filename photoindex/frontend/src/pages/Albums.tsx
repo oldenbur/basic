@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlbumEvent, AlbumRef, api, FaceGroup, FaceGroups, RefExample, RefKind } from "../api";
+import { AlbumEvent, AlbumRef, api, DatedEvent, FaceGroup, FaceGroups, PlacedEvent, PlacementYear, RefExample, RefKind, usd } from "../api";
 
 const REASON_TEXT: Record<string, string> = {
   colour: "colours change", "print size": "print size changes", "new page": "new page",
@@ -202,14 +202,14 @@ function RefsTab() {
 function GroupBlock({ g, data }: { g: FaceGroup; data: FaceGroups }) {
   const qc = useQueryClient();
   const [out, setOut] = useState<Set<number>>(new Set());
-  const [who, setWho] = useState<string>(g.guess_id ? String(g.guess_id) : "");
-  const [newName, setNewName] = useState("");
+  const [who, setWho] = useState("");
   const [showAll, setShowAll] = useState(false);
   const all = useQuery({ queryKey: ["album-face-group", g.id], queryFn: () => api.faceGroupFaces(g.id), enabled: showAll });
   const faces = showAll && all.data ? all.data : g.faces;
   const done = () => { qc.invalidateQueries({ queryKey: ["album-face-groups"] }); qc.invalidateQueries({ queryKey: ["albums"] }); };
   const name = useMutation({
-    mutationFn: () => api.nameFaceGroup(g.id, who === "new" ? { name: newName } : { person_id: Number(who) }, [...out]),
+    // A name you've used before goes to that person (any capitalisation); a new one adds a person.
+    mutationFn: () => api.nameFaceGroup(g.id, { name: who.trim() }, [...out]),
     onSuccess: done,
   });
   const ignore = useMutation({ mutationFn: () => api.ignoreFaceGroup(g.id, [...out]), onSuccess: done });
@@ -233,13 +233,15 @@ function GroupBlock({ g, data }: { g: FaceGroup; data: FaceGroups }) {
         )}
       </div>
       <form className="row" onSubmit={(e) => { e.preventDefault(); name.mutate(); }}>
-        <select value={who} onChange={(e) => setWho(e.target.value)}>
-          <option value="">Who is this?</option>
-          {data.people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          <option value="new">Someone new…</option>
-        </select>
-        {who === "new" && <input placeholder="Name" value={newName} onChange={(e) => setNewName(e.target.value)} />}
-        <button type="submit" className="primary" disabled={!who || (who === "new" && !newName.trim()) || name.isPending}>
+        <input list="album-people" placeholder="Who is this? Type any name" value={who} onChange={(e) => setWho(e.target.value)}
+          style={{ minWidth: "16rem" }} />
+        {g.guess_name && !who && (
+          <button type="button" className="link small" onClick={() => setWho(g.guess_name ?? "")}>{g.guess_name}?</button>
+        )}
+        {who.trim() && !data.people.some((p) => p.name.toLowerCase() === who.trim().toLowerCase()) && (
+          <span className="muted small">new person</span>
+        )}
+        <button type="submit" className="primary" disabled={!who.trim() || name.isPending}>
           Name {out.size ? `${g.size - out.size} of them` : "them"}
         </button>
         <button type="button" onClick={() => ignore.mutate()} disabled={ignore.isPending}>Not anyone to name</button>
@@ -276,6 +278,7 @@ function FacesTab() {
           {regroup.isPending ? "Regrouping…" : "Match & regroup"}
         </button>
       </div>
+      <datalist id="album-people">{d.people.map((p) => <option key={p.id} value={p.name} />)}</datalist>
       {d.groups.map((g) => <GroupBlock key={g.id} g={g} data={d} />)}
       {d.total === 0 && <p className="muted">No unnamed groups left.</p>}
       <div className="row">
@@ -287,9 +290,220 @@ function FacesTab() {
   );
 }
 
+// ---------------------------------------------------------------- Dating
+
+const range = (lo?: string | null, hi?: string | null) => (lo && hi && lo !== hi ? `${lo} – ${hi}` : lo || hi || "");
+
+function DatedEventBlock({ e }: { e: DatedEvent }) {
+  return (
+    <section className="dated-event">
+      <div className="row">
+        <strong>{e.album} #{e.seq}</strong>
+        {e.status === "done" ? (
+          <>
+            <span><strong>{e.best}</strong> <span className="muted small">({range(e.earliest, e.latest)})</span></span>
+            <span className={`small conf-${e.confidence}`}>{e.confidence} confidence</span>
+            <span>{e.summary}</span>
+          </>
+        ) : <span className="error small">{e.status}: {e.error}</span>}
+      </div>
+      {e.clues && <p className="muted small">{e.clues}</p>}
+      <div className="prints">
+        {e.prints.map((p) => (
+          <div key={p.photo_id} className={`dated-print${p.different_occasion ? " odd" : ""}`}
+            title={p.different_occasion ? "Looks like a different occasion from the rest" : undefined}>
+            {p.thumb_url && <img src={p.thumb_url} alt={p.name} loading="lazy" />}
+            <span><strong>{p.best ?? "—"}</strong> <span className={`conf-${p.confidence}`}>{p.confidence}</span></span>
+            {range(p.earliest, p.latest) && <span className="muted">{range(p.earliest, p.latest)}</span>}
+            {p.ages && p.ages.length > 0 && <span>{p.ages.map((a) => `${a.name} ${a.age}`).join(", ")}</span>}
+            {p.reference && <span className="me">{p.reference}</span>}
+            {p.caption && <span className="muted">{p.caption}</span>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DatingTab() {
+  const qc = useQueryClient();
+  const status = useQuery({
+    queryKey: ["album-dating"], queryFn: api.dating,
+    refetchInterval: (q) => (q.state.data?.runs.some((r) => r.status === "submitted" || r.status === "collecting") ? 30_000 : false),
+  });
+  const hasPilot = !!status.data?.runs.some((r) => r.kind === "pilot" && r.status !== "failed");
+  const estimate = useQuery({ queryKey: ["album-dating-estimate", "pilot"], queryFn: () => api.datingEstimate("pilot"),
+    enabled: !!status.data && !hasPilot, staleTime: 10 * 60_000 });
+  const results = useQuery({ queryKey: ["album-dating-results", status.data?.dated], queryFn: api.datingResults, enabled: hasPilot });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["album-dating"] }); qc.invalidateQueries({ queryKey: ["album-dating-results"] }); };
+  const start = useMutation({ mutationFn: () => api.startDatingPilot(status.data!.pilot_max_usd), onSuccess: refresh });
+  const poll = useMutation({ mutationFn: api.pollDating, onSuccess: refresh });
+  if (status.isLoading) return <p className="muted">Loading…</p>;
+  if (status.error || !status.data) return <p className="error">{String(status.error)}</p>;
+  const s = status.data;
+  const running = s.runs.some((r) => r.status === "submitted" || r.status === "collecting");
+  return (
+    <>
+      <p className="muted">
+        Claude estimates a month for every print from the children's ages, the reference houses, trips and occasions,
+        seasons and clothing. These are raw estimates; smoothing them along album order and anchoring them on the
+        timeline comes next. {s.dated.toLocaleString()} of {s.prints.toLocaleString()} prints have an estimate.
+      </p>
+      {!s.has_key && <p className="error">Set ANTHROPIC_API_KEY in backend/.env first.</p>}
+      {!hasPilot && (
+        <div className="row">
+          <button className="primary" disabled={start.isPending || !estimate.data || !s.has_key} onClick={() => start.mutate()}>
+            {start.isPending ? "Preparing and sending…" : estimate.data
+              ? `Start pilot: ${estimate.data.events} events, ${estimate.data.prints} prints (about ${usd(estimate.data.low)}–${usd(estimate.data.high)})`
+              : "Estimating…"}
+          </button>
+          {start.error && <span className="error small">{start.error.message}</span>}
+        </div>
+      )}
+      {s.runs.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Sent</th><th>Kind</th><th>Status</th><th className="num">Events</th><th className="num">OK</th>
+              <th className="num">Failed</th><th className="num">Cost</th></tr></thead>
+            <tbody>
+              {s.runs.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.created_at ? new Date(r.created_at + "Z").toLocaleString() : ""}</td>
+                  <td>{r.kind}</td><td>{r.status === "submitted" ? "running" : r.status}</td>
+                  <td className="num">{r.requests}</td>
+                  <td className="num">{r.status === "ended" ? r.succeeded : ""}</td>
+                  <td className="num">{r.status === "ended" ? r.errored : ""}</td>
+                  <td className="num">{r.cost_usd != null ? usd(r.cost_usd) : <span className="muted">≤{usd(r.est_cost_usd)}</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {running && (
+        <div className="row">
+          <span className="muted small">Answers usually come back within the hour; this page checks every 30 seconds.</span>
+          <button className="link" onClick={() => poll.mutate()} disabled={poll.isPending}>Check now</button>
+        </div>
+      )}
+      {results.data?.map((e) => <DatedEventBlock key={e.id} e={e} />)}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Placement
+
+function PlacedEventBlock({ e, onChanged }: { e: PlacedEvent; onChanged: () => void }) {
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [month, setMonth] = useState(e.your_month ?? "");
+  const done = () => { setPicked(new Set()); onChanged(); };
+  const move = useMutation({ mutationFn: (to: string) => api.movePrints([...picked], to), onSuccess: done });
+  const edit = useMutation({ mutationFn: (x: { status?: "include" | "skip" | "auto"; month?: string }) => api.editEvent(e.key, x), onSuccess: onChanged });
+  const busy = move.isPending || edit.isPending;
+  const toggle = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const span = e.first === e.last ? e.first : `${e.first} – ${e.last}`;
+  const decision = e.decision === "include" ? "included (your decision)" : e.decision === "skip" ? "left out (your decision)"
+    : e.decision === "undecided" ? "waiting for your decision" : null;
+  return (
+    <section className="dated-event">
+      <div className="row">
+        <strong>{e.label}</strong>
+        <span><strong>{span}</strong></span>
+        {e.has_me && <span className="me small">you're in it</span>}
+        <span>{e.summary}</span>
+        {decision && <span className={`small ${e.decision === "undecided" ? "muted" : "me"}`}>{decision}</span>}
+      </div>
+      <div className="row small">
+        <button disabled={busy || e.decision === "include"} onClick={() => edit.mutate({ status: "include" })}>Include</button>
+        <button disabled={busy || e.decision === "skip"} onClick={() => edit.mutate({ status: "skip" })}>Leave out</button>
+        {(e.decision === "include" || e.decision === "skip") &&
+          <button className="link" disabled={busy} onClick={() => edit.mutate({ status: "auto" })}>Undo decision</button>}
+        <label>Month <input type="month" value={month} onChange={(ev) => setMonth(ev.target.value)} /></label>
+        <button disabled={busy || !month || month === e.your_month} onClick={() => edit.mutate({ month })}>Set month</button>
+        {e.your_month && <button className="link" disabled={busy} onClick={() => { setMonth(""); edit.mutate({ month: "auto" }); }}>Use estimated month</button>}
+        {edit.error && <span className="error">{edit.error.message}</span>}
+      </div>
+      {picked.size > 0 && (
+        <div className="pick-bar">
+          <span>{picked.size} selected</span>
+          <button className="primary" disabled={busy || picked.size === e.prints.length} onClick={() => move.mutate("new")}>Split into a new event</button>
+          {e.prev && <button disabled={busy} onClick={() => move.mutate(e.prev!)}>Move to the event before</button>}
+          {e.next && <button disabled={busy} onClick={() => move.mutate(e.next!)}>Move to the event after</button>}
+          <button className="link" onClick={() => setPicked(new Set())}>Clear</button>
+          {move.error && <span className="error small">{move.error.message}</span>}
+        </div>
+      )}
+      <div className="prints">
+        {e.prints.map((p) => (
+          <div key={p.photo_id} className={`dated-print pickable${picked.has(p.photo_id) ? " picked" : ""}`}
+            onClick={() => toggle(p.photo_id)} title="Click to select">
+            {p.thumb_url && <img src={p.thumb_url} alt={p.name} loading="lazy" />}
+            <span><strong>{p.month}</strong> <span className="muted">{p.name}</span></span>
+            {p.status !== "include" && <span className="muted">{p.status === "older" ? "older, kept out" : p.status === "skip" ? "left out" : "waiting"}</span>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PlacementTab() {
+  const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const view = params.get("view") === "all" ? "all" : "review";
+  const year = params.get("year") ? Number(params.get("year")) : undefined;
+  const set = (k: string, v: string | null) => { const n = new URLSearchParams(params); if (v) n.set(k, v); else n.delete(k); setParams(n, { replace: true }); };
+  const q = useQuery({ queryKey: ["album-placements", view, year], queryFn: () => api.placements(view, year), placeholderData: (d) => d });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["album-placements"] });
+  const rerun = useMutation({ mutationFn: api.runPlacement, onSuccess: refresh });
+  if (q.isLoading) return <p className="muted">Loading…</p>;
+  if (q.error || !q.data) return <p className="error">{String(q.error)}</p>;
+  const { years, events } = q.data;
+  const total = (k: keyof PlacementYear) => years.reduce((n, y) => n + ((y[k] as number) || 0), 0);
+  return (
+    <>
+      <p className="muted">
+        Each print's settled month and the year folder it would be copied into. Nothing is copied yet. Prints before
+        1972 stay out for now; from 1995 on, only events you're recognised in are included unless you decide otherwise.
+        Click prints to select them, then split them into a new event or move them to the event before or after.
+        Your splits, months and decisions are kept when months are recomputed.
+      </p>
+      <div className="row">
+        <span>{total("include").toLocaleString()} to copy · {total("older")} older · {total("review")} waiting · {total("skip")} left out</span>
+        <button className="link" onClick={() => rerun.mutate()} disabled={rerun.isPending}>
+          {rerun.isPending ? "Recomputing…" : "Recompute months"}</button>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Year</th><th className="num">To copy</th><th className="num">Waiting</th>
+            <th className="num">Left out</th><th className="num">Older</th></tr></thead>
+          <tbody>
+            {years.map((y) => (
+              <tr key={y.year} className={y.year === year ? "selected" : undefined}>
+                <td><button className="link" onClick={() => { set("year", y.year === year ? null : String(y.year)); }}>{y.year}</button></td>
+                <td className="num">{y.include ?? ""}</td><td className="num">{y.review ?? ""}</td>
+                <td className="num">{y.skip ?? ""}</td><td className="num">{y.older ?? ""}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="row">
+        <div className="tabs">
+          <button className={view === "review" ? "active" : ""} onClick={() => set("view", null)}>From 1995 on, without you</button>
+          <button className={view === "all" ? "active" : ""} onClick={() => set("view", "all")}>All events</button>
+        </div>
+        {year && <span>in {year} <button className="link" onClick={() => set("year", null)}>any year</button></span>}
+        <span className="muted small">{events.length} events{view === "review" ? `, ${events.filter((e) => e.decision === "undecided").length} undecided` : ""}</span>
+      </div>
+      {view === "all" && !year && events.length > 60 && <p className="muted small">Showing every event; pick a year above to narrow it.</p>}
+      {events.map((e) => <PlacedEventBlock key={`${e.key}-${e.prints.length}-${e.your_month}`} e={e} onChanged={refresh} />)}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------- Page
 
-const TABS = { events: "Events", refs: "References", faces: "Faces" } as const;
+const TABS = { events: "Events", refs: "References", faces: "Faces", dating: "Dating", placement: "Placement" } as const;
 type Tab = keyof typeof TABS;
 
 export function Albums() {
@@ -314,6 +528,8 @@ export function Albums() {
       {tab === "events" && <EventsTab />}
       {tab === "refs" && <RefsTab />}
       {tab === "faces" && <FacesTab />}
+      {tab === "dating" && <DatingTab />}
+      {tab === "placement" && <PlacementTab />}
     </>
   );
 }

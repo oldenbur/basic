@@ -339,3 +339,117 @@ class AlbumRefExample(Base):
     status: Mapped[str] = mapped_column(String, default="proposed")  # proposed | confirmed | rejected
     source: Mapped[str] = mapped_column(String, default="user")  # user | claude
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AlbumDateRun(Base):
+    """One Message Batch of album events sent for dating (a pilot, or the full run)."""
+
+    __tablename__ = "album_date_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String)  # pilot | full
+    model: Mapped[str] = mapped_column(String)
+    prompt_version: Mapped[int] = mapped_column(Integer)
+    batch_id: Mapped[str | None] = mapped_column(String, unique=True)
+    status: Mapped[str] = mapped_column(String, default="submitted", index=True)  # submitted|collecting|ended|failed
+    requests: Mapped[int] = mapped_column(Integer, default=0)
+    succeeded: Mapped[int] = mapped_column(Integer, default=0)
+    errored: Mapped[int] = mapped_column(Integer, default=0)
+    est_cost_usd: Mapped[float] = mapped_column(Float, default=0)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class AlbumDateAnswer(Base):
+    """The model's answer for one event (a run of prints). Keyed by the prints it covered, not the event id:
+    events are rebuilt when the albums are regrouped."""
+
+    __tablename__ = "album_date_answers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("album_date_runs.id", ondelete="CASCADE"), index=True)
+    album: Mapped[str] = mapped_column(String)
+    event_seq: Mapped[int] = mapped_column(Integer)  # the event's position when it was sent
+    photo_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer))  # in album order
+    status: Mapped[str] = mapped_column(String, default="queued")  # queued | done | error | refused
+    result: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_read_tokens: Mapped[int | None] = mapped_column(Integer)
+    cache_write_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AlbumPrintDate(Base):
+    """The model's dating of one print, from its event's answer. The latest answer for a print wins."""
+
+    __tablename__ = "album_print_dates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    answer_id: Mapped[int] = mapped_column(ForeignKey("album_date_answers.id", ondelete="CASCADE"), index=True)
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), index=True)
+    best: Mapped[date | None] = mapped_column(Date)  # first of the month
+    earliest: Mapped[date | None] = mapped_column(Date)
+    latest: Mapped[date | None] = mapped_column(Date)
+    confidence: Mapped[str | None] = mapped_column(String)  # low | medium | high
+    ref_label: Mapped[str | None] = mapped_column(String)
+    ages: Mapped[list | None] = mapped_column(JSONB)  # [{"name": ..., "age": 7.5}]
+    different_occasion: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    caption: Mapped[str | None] = mapped_column(Text)
+    clues: Mapped[str | None] = mapped_column(Text)
+
+
+class AlbumPlacement(Base):
+    """Where an album print goes: its settled month and whether it's copied into that year's folder."""
+
+    __tablename__ = "album_placements"
+
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True)
+    month: Mapped[date] = mapped_column(Date, index=True)  # first of the month
+    # model (its own estimate) | event (its event's month) | neighbours (pulled between confident neighbours)
+    # | reference (kept inside a matched reference's dates) | you (set by hand; never recomputed)
+    source: Mapped[str] = mapped_column(String)
+    confidence: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, index=True)  # include | older | review | skip
+    reason: Mapped[str | None] = mapped_column(Text)
+    answer_id: Mapped[int | None] = mapped_column(ForeignKey("album_date_answers.id", ondelete="SET NULL"), index=True)
+    has_me: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    event_key: Mapped[str | None] = mapped_column(String, index=True)  # "a{answer id}" or "g{group id}"
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class AlbumGroup(Base):
+    """An event you made by splitting prints off another one (its key is "g{id}")."""
+
+    __tablename__ = "album_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    album: Mapped[str] = mapped_column(String)
+    summary: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AlbumPrintMove(Base):
+    """A print you moved out of the event that dated it: into another dated event, or into one of your groups."""
+
+    __tablename__ = "album_print_moves"
+
+    photo_id: Mapped[int] = mapped_column(ForeignKey("photos.id", ondelete="CASCADE"), primary_key=True)
+    answer_id: Mapped[int | None] = mapped_column(ForeignKey("album_date_answers.id", ondelete="CASCADE"))
+    group_id: Mapped[int | None] = mapped_column(ForeignKey("album_groups.id", ondelete="CASCADE"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class AlbumEventOverride(Base):
+    """Your decision and month for an event ("a{answer id}" or "g{group id}"); kept when placement reruns."""
+
+    __tablename__ = "album_event_overrides"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    status: Mapped[str | None] = mapped_column(String)  # include | skip
+    month: Mapped[date | None] = mapped_column(Date)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
